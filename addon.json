@@ -1,0 +1,13 @@
+{
+	"title"   : "Sentry.io Integration",
+	"type"    : "tool",
+	"tags"    : [],
+	"ignore"  :
+	[
+		"LICENSE",
+		"NOTICE",
+		".editorconfig",
+		"*.md",
+		".git*"
+	]
+}
