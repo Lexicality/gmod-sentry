@@ -12,6 +12,7 @@ local luaerror = luaerror;
 local math = math;
 local os = os;
 local string = string;
+local table = table;
 local unpack = unpack;
 local util = util;
 -- debugging
@@ -86,9 +87,20 @@ end
 
 local function sentrifyStack(stack)
 	local ret = {}
+	-- Sentry likes stacks in the oposite order to lua
+	stack = table.Reverse(stack);
+	-- The first entry from LuaError is sometimes useless
+	if (stack[#stack]["source"] == "=[C]" and stack[#stack]["name"] == "") then
+		table.remove(stack);
+	end
+	-- If someone has called `error`, remove it from the stack trace
+	if (stack[#stack]["source"] == "=[C]" and stack[#stack]["name"] == "error" ) then
+		table.remove(stack);
+	end
+
 	for i, frame in ipairs(stack) do
 		ret[i] = {
-			filename = frame["source"],
+			filename = frame["source"]:sub(2),
 			["function"] = frame["name"],
 			module = modulify(frame["source"]),
 			lineno = frame["currentline"],
