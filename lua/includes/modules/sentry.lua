@@ -56,13 +56,41 @@ local function shouldReport()
 	return true;
 end
 
+local ADDON_FILE_PATTERN = "^@addons/([^/]+)/lua/(.*).lua$"
+local GAMEMODE_FILE_PATTERN = "^@gamemodes/([^/]+)/(.*).lua$"
+local OTHER_FILE_PATTERN = "^@lua/(.*).lua$"
+local function modulify(path)
+	if (path == "=[C]") then
+		return "engine";
+	elseif (path == "@lua_run") then
+		return "lua_run";
+	end
+
+	local addon, rest = string.match(path, ADDON_FILE_PATTERN);
+	if (addon) then
+		return addon .. "." .. rest:gsub("/", ".");
+	end
+
+	local gamemode, rest = string.match(path, GAMEMODE_FILE_PATTERN);
+	if (gamemode) then
+		return gamemode .. "." .. rest:gsub("/", ".");
+	end
+
+	local rest = string.match(path, OTHER_FILE_PATTERN);
+	if (rest) then
+		return "unknown." .. rest:gsub("/", ".")
+	end
+
+	return "unknown";
+end
+
 local function sentrifyStack(stack)
 	local ret = {}
 	for i, frame in ipairs(stack) do
 		ret[i] = {
 			filename = frame["source"],
 			["function"] = frame["name"],
-			module = frame["source"],
+			module = modulify(frame["source"]),
 			lineno = frame["currentline"],
 		}
 	end
