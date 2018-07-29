@@ -4,10 +4,10 @@ if (not luaerror) then
 end
 
 local HTTP = HTTP;
-local ipairs = ipairs;
 local bit = bit;
 local error = error;
 local hook = hook;
+local ipairs = ipairs;
 local luaerror = luaerror;
 local math = math;
 local os = os;
@@ -16,6 +16,7 @@ local table = table;
 local unpack = unpack;
 local util = util;
 -- debugging
+local debug = debug
 local print = print;
 local PrintTable = PrintTable;
 
@@ -86,9 +87,9 @@ local function modulify(path)
 end
 
 local function sentrifyStack(stack)
-	local ret = {}
 	-- Sentry likes stacks in the oposite order to lua
 	stack = table.Reverse(stack);
+
 	-- The first entry from LuaError is sometimes useless
 	if (stack[#stack]["source"] == "=[C]" and stack[#stack]["name"] == "") then
 		table.remove(stack);
@@ -98,6 +99,7 @@ local function sentrifyStack(stack)
 		table.remove(stack);
 	end
 
+	local ret = {}
 	for i, frame in ipairs(stack) do
 		ret[i] = {
 			filename = frame["source"]:sub(2),
@@ -159,10 +161,20 @@ local function SendToServer(err, stacktrace)
 	})
 end
 
-local function OnLuaError(_, _, _, _, err, stack)
+local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 	if (not shouldReport()) then
 		return;
 	end
+
+	if (#stack == 0) then
+		stack[1] = {
+			name = is_runtime and "<unknown>" or "<compile>",
+			source = '@' .. file,
+			currentline = lineno,
+		}
+	end
+
+
 	SendToServer(err, stack)
 	-- TODO
 end
