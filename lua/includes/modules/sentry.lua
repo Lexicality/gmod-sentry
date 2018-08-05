@@ -26,6 +26,9 @@ SDK_VALUE = {
 	name = "GMSentry",
 	version = "0.0.1",
 }
+-- LuaJIT Style
+Version = string.format("%s %s", SDK_VALUE.name, SDK_VALUE.version);
+VersionNum = string.format("%02d%02d%02d", string.match(SDK_VALUE.version, "(%d+).(%d+).(%d+)"))
 
 local config = {
 	endpoint = nil;
