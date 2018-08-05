@@ -4,6 +4,8 @@ if (not luaerror) then
 end
 
 local HTTP = HTTP;
+local ServerLog = ServerLog;
+local SysTime = SysTime;
 local bit = bit;
 local error = error;
 local hook = hook;
@@ -14,6 +16,7 @@ local os = os;
 local pairs = pairs;
 local string = string;
 local table = table;
+local tonumber = tonumber;
 local tostring = tostring;
 local unpack = unpack;
 local util = util;
@@ -66,6 +69,10 @@ end
 
 function ISODate(time)
 	return os.date("!%Y-%m-%dT%H:%M:%S", time);
+end
+
+function WriteLog(message, ...)
+	ServerLog(string.format("Sentry: %s\n", message:format(...)));
 end
 
 
@@ -136,11 +143,43 @@ end
 --
 --    Rate Limiting
 --
+local retryAfter = nil;
 local function shouldReport()
 	if (not config.endpoint) then
 		return false;
+	elseif (retryAfter ~= nil) then
+		local now = SysTime();
+		if (retryAfter > now) then
+			return false;
+		end
+
+		retryAfter = nil;
 	end
 	-- Backoff logic goes here
+	return true;
+end
+
+local function doBackoff(backoff)
+	local expires = SysTime() + backoff;
+	if (retryAfter == nil or retryAfter < expires) then
+		WriteLog("Rate Limiting for %d seconds!", backoff);
+		retryAfter = expires;
+	end
+end
+
+local function detectRateLimiting(code, headers)
+	local backoff = tonumber(headers["Retry-After"]);
+	-- Shouldn't happen, but might
+	if (code == 429 and not backoff) then
+		backoff = 20;
+	end
+
+	if (not backoff) then
+		return false;
+	end
+
+	doBackoff(backoff);
+
 	return true;
 end
 
@@ -285,11 +324,32 @@ local function SendToServer(err, stacktrace)
 			["X-Sentry-Auth"] = sentryAuthHeader(now),
 		},
 		success = function(code, body, headers)
-			print("Success!", code, body)
-			PrintTable(headers)
+			local result = util.JSONToTable(body) or {};
+
+			if (detectRateLimiting(code, headers)) then
+				return;
+			elseif (code ~= 200) then
+				if (code >= 500) then
+					WriteLog("Server is offline, trying later");
+					doBackoff(2);
+					return
+				elseif (code == 401) then
+					WriteLog("Access denied: %s", result["error"]);
+					-- If sentry tells us to go away, go away properly
+					config.endpoint = nil;
+					return;
+				else
+					WriteLog("Got HTTP %d from the server: %s", code, result["error"] or body)
+					return;
+				end
+			end
+
+			-- Debugging
+			print("Success! Event stored with ID " .. (result["id"] or "?"))
 		end,
 		failed = function(reason)
-			print("Failure", reason)
+			-- This is effectively useless
+			WriteLog("HTTP request failed: %s", reason);
 		end,
 	})
 end
