@@ -179,13 +179,6 @@ local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 	-- TODO
 end
 
-local function OnClientLuaError(ply, fallback, _, _, err, stack)
-	if (not shouldReport()) then
-		return;
-	end
-	-- TODO
-end
-
 local DSN_FORMAT = "^(https?://)(%w+):(%w+)@([%w.:]+)/(%w+)$";
 local function parseDSN(dsn)
 	local scheme, publickey, privatekey, host, project = string.match(dsn, DSN_FORMAT);
@@ -203,10 +196,8 @@ function Setup(dsn, config)
 
 	luaerror.EnableRuntimeDetour(true);
 	luaerror.EnableCompiletimeDetour(true);
-	luaerror.EnableClientDetour(true);
 
 	hook.Add("LuaError", "Sentry Integration", OnLuaError);
-	hook.Add("ClientLuaError", "Sentry Integration", OnClientLuaError);
 end
 
 function CaptureException(err)
