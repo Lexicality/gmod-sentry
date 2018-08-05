@@ -15,6 +15,7 @@ local math = math;
 local os = os;
 local pairs = pairs;
 local string = string;
+local system = system;
 local table = table;
 local tonumber = tonumber;
 local tostring = tostring;
@@ -72,6 +73,17 @@ function ISODate(time)
 	return os.date("!%Y-%m-%dT%H:%M:%S", time);
 end
 
+function GetOSName()
+	if (system.IsWindows()) then
+		return "Windows";
+	elseif (system.IsOSX()) then
+		return "macOS";
+	elseif (system.IsLinux()) then
+		return "Linux";
+	end
+	return nil;
+end
+
 function WriteLog(message, ...)
 	ServerLog(string.format("Sentry: %s\n", message:format(...)));
 end
@@ -114,9 +126,6 @@ DetectionFuncs = {
 		end
 		return GM.Version, string.format("Gamemode: %s", GM.Name);
 	end;
-	_G = function(_G)
-		return _G["VERSION"], "Garry's Mod";
-	end
 }
 DetectionFuncs["GAMEMODE"] = DetectionFuncs["GM"];
 
@@ -293,6 +302,26 @@ end
 
 
 --
+--    Context Management
+--
+local function getContexts()
+	return {
+		os = {
+			name = GetOSName(),
+		},
+		runtime = {
+			name = "Garry's Mod",
+			version = g["VERSION"],
+		},
+		app = {
+			app_start_time = math.floor(os.time() - SysTime()),
+			app_name = GetHostName(),
+		},
+	}
+end
+
+
+--
 --    Actual HTTP Integration
 --
 local SENTRY_HEADER_FORMAT = (
@@ -326,6 +355,7 @@ local function SendToServer(err, stacktrace)
 			stacktrace = sentrifyStack(stacktrace),
 		}},
 		modules = DetectedModules,
+		contexts = getContexts(),
 	};
 
 	HTTP({
