@@ -1,7 +1,7 @@
 local function throws(arg1, arg2)
 	local foo = 8;
 	local bar = arg1 .. arg2;
-	error("oops");
+	error("oops", 2);
 end
 
 local function level1(arg1)
@@ -22,4 +22,11 @@ if SERVER then
 	concommand.Add("oops", function() level5() end);
 else
 	concommand.Add("cl_oops", function() level5() end);
+end
+
+function drspang()
+	local res, err = xpcall(level5, sentry.CaptureException)
+	if (not res and err) then
+		ErrorNoHalt(err);
+	end
 end

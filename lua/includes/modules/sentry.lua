@@ -205,6 +205,40 @@ local function sentrifyStack(stack)
 	return { frames = ret };
 end
 
+local function getStack()
+	local level = 3; -- 1 = this, 2 = CaptureException
+
+	local stack = {};
+	while true do
+		local info = debug.getinfo(level, "Sln");
+		if (not info) then
+			break;
+		end
+
+		stack[level - 2] = info;
+
+		level = level + 1;
+	end
+
+	return stack;
+end
+
+local function stripFileData(err, stack)
+	local match, file, line = string.match(err, "^((.+%.lua):(%d+): ).+$");
+	if (not match) then
+		return err;
+	end
+
+	for _, frame in pairs(stack) do
+		if (frame["source"] == "@" .. file and tostring(frame["currentline"]) == tostring(line)) then
+			err = err:sub(#match + 1);
+			break;
+		end
+	end
+
+	return err;
+end
+
 
 --
 --    Actual HTTP Integration
@@ -283,7 +317,10 @@ local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 end
 
 function CaptureException(err)
-	error("TODO")
+	local stack = getStack();
+	err = stripFileData(err, stack);
+
+	SendToServer(err, stack)
 end
 
 
