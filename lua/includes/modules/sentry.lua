@@ -27,6 +27,19 @@ local g = _G;
 
 module("sentry");
 
+--
+--    Global Config
+--
+local config = {
+	endpoint = nil;
+	privatekey = nil;
+	publickey = nil;
+	projectID = nil;
+}
+
+--
+--    Versioning
+--
 SDK_VALUE = {
 	name = "GMSentry",
 	version = "0.0.1",
@@ -35,13 +48,10 @@ SDK_VALUE = {
 Version = string.format("%s %s", SDK_VALUE.name, SDK_VALUE.version);
 VersionNum = string.format("%02d%02d%02d", string.match(SDK_VALUE.version, "(%d+).(%d+).(%d+)"))
 
-local config = {
-	endpoint = nil;
-	privatekey = nil;
-	publickey = nil;
-	projectID = nil;
-}
 
+--
+--    Utility Functions
+--
 function UUID4()
 	-- Copied from wirelib almost verbatim
 	-- It would be easier to generate this by word rather than by byte, but
@@ -58,6 +68,10 @@ function ISODate(time)
 	return os.date("!%Y-%m-%dT%H:%M:%S", time);
 end
 
+
+--
+--    Module Detection
+--
 DetectedModules = {};
 DetectionFuncs = {
 	luaerror = function(luaerror)
@@ -98,6 +112,7 @@ DetectionFuncs = {
 		return ULib.version or ULib.VERSION;
 	end;
 }
+
 local function detectModules()
 	for name, func in pairs(DetectionFuncs) do
 		local module = g[name];
@@ -110,7 +125,17 @@ local function detectModules()
 	end
 end
 
+local function detectGamemode()
+	local GM = g['GAMEMODE'];
+	if (GM.Version) then
+		DetectedModules[string.format("Gamemode: %s", GM.Name)] = tostring(GM.Version);
+	end
+end
 
+
+--
+--    Rate Limiting
+--
 local function shouldReport()
 	if (not config.endpoint) then
 		return false;
@@ -119,6 +144,10 @@ local function shouldReport()
 	return true;
 end
 
+
+--
+--    File Identification
+--
 local ADDON_FILE_PATTERN = "^@addons/([^/]+)/lua/(.*).lua$"
 local GAMEMODE_FILE_PATTERN = "^@gamemodes/([^/]+)/(.*).lua$"
 local OTHER_FILE_PATTERN = "^@lua/(.*).lua$"
@@ -147,6 +176,10 @@ local function modulify(path)
 	return "unknown";
 end
 
+
+--
+--    Stack Reverse Engineering
+--
 local function sentrifyStack(stack)
 	-- Sentry likes stacks in the oposite order to lua
 	stack = table.Reverse(stack);
@@ -172,6 +205,10 @@ local function sentrifyStack(stack)
 	return { frames = ret };
 end
 
+
+--
+--    Actual HTTP Integration
+--
 local SENTRY_HEADER_FORMAT = (
 	"Sentry sentry_version=7, " ..
 	"sentry_client=%s/%s, " ..
@@ -223,6 +260,10 @@ local function SendToServer(err, stacktrace)
 	})
 end
 
+
+--
+--    Reporting Functions
+--
 local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 	if (not shouldReport()) then
 		return;
@@ -241,6 +282,14 @@ local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 	-- TODO
 end
 
+function CaptureException(err)
+	error("TODO")
+end
+
+
+--
+-- Initial Configuration
+--
 local DSN_FORMAT = "^(https?://)(%w+):(%w+)@([%w.:]+)/(%w+)$";
 local function parseDSN(dsn)
 	local scheme, publickey, privatekey, host, project = string.match(dsn, DSN_FORMAT);
@@ -262,15 +311,5 @@ function Setup(dsn, config)
 	hook.Add("LuaError", "Sentry Integration", OnLuaError);
 
 	detectModules();
-
-	hook.Add("Initialize", "Sentry Integration", function()
-		local GM = g['GAMEMODE'];
-		if (GM.Version) then
-			DetectedModules[string.format("Gamemode: %s", GM.Name)] = tostring(GM.Version);
-		end
-	end)
-end
-
-function CaptureException(err)
-	error("TODO")
+	hook.Add("Initialize", "Sentry Integration", detectGamemode)
 end
