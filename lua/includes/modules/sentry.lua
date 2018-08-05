@@ -11,14 +11,19 @@ local ipairs = ipairs;
 local luaerror = luaerror;
 local math = math;
 local os = os;
+local pairs = pairs;
 local string = string;
 local table = table;
+local tostring = tostring;
 local unpack = unpack;
 local util = util;
+local xpcall = xpcall;
 -- debugging
 local debug = debug
 local print = print;
 local PrintTable = PrintTable;
+
+local g = _G;
 
 module("sentry");
 
@@ -52,6 +57,59 @@ end
 function ISODate(time)
 	return os.date("!%Y-%m-%dT%H:%M:%S", time);
 end
+
+DetectedModules = {};
+DetectionFuncs = {
+	luaerror = function(luaerror)
+		local name, version = string.match(luaerror.Version, "^(.+) ([^ ]+)$");
+		return version, name
+	end;
+	jit = function(jit)
+		local name, version = string.match(jit.version, "^(.+) ([^ ]+)$");
+		return version, name
+	end;
+	mysqloo = function(mysqloo)
+		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION);
+	end;
+	CAMI = function(CAMI)
+		return CAMI.Version;
+	end;
+	CPPI = function(CPPI)
+		local name = CPPI:GetName();
+		local version = CPPI:GetVersion();
+		if (version == CPPI.CPPI_NOT_IMPLEMENTED) then
+			-- ???
+			return nil;
+		end
+		return version, name;
+	end;
+	ulx = function(ulx)
+		-- Why is this better than ulx.version
+		local ULib = g["ULib"];
+		if (ULib and ULib.pluginVersionStr) then
+			return ULib.pluginVersionStr("ULX");
+		end
+		return ulx.version or ulx.VERSION;
+	end;
+	ULib = function(ULib)
+		if (ULib.pluginVersionStr) then
+			return ULib.pluginVersionStr("ULib");
+		end
+		return ULib.version or ULib.VERSION;
+	end;
+}
+local function detectModules()
+	for name, func in pairs(DetectionFuncs) do
+		local module = g[name];
+		if (module) then
+			local _, version, override = xpcall(func, CaptureException, module);
+			if (version) then
+				DetectedModules[override or name] = tostring(version);
+			end
+		end
+	end
+end
+
 
 local function shouldReport()
 	if (not config.endpoint) then
@@ -143,7 +201,8 @@ local function SendToServer(err, stacktrace)
 			type = "error",
 			value = err,
 			stacktrace = sentrifyStack(stacktrace),
-		}}
+		}},
+		modules = DetectedModules,
 	};
 
 	HTTP({
@@ -201,6 +260,15 @@ function Setup(dsn, config)
 	luaerror.EnableCompiletimeDetour(true);
 
 	hook.Add("LuaError", "Sentry Integration", OnLuaError);
+
+	detectModules();
+
+	hook.Add("Initialize", "Sentry Integration", function()
+		local GM = g['GAMEMODE'];
+		if (GM.Version) then
+			DetectedModules[string.format("Gamemode: %s", GM.Name)] = tostring(GM.Version);
+		end
+	end)
 end
 
 function CaptureException(err)
