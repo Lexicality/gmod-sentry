@@ -18,6 +18,7 @@ local string = string;
 local table = table;
 local tonumber = tonumber;
 local tostring = tostring;
+local type = type;
 local unpack = unpack;
 local util = util;
 local xpcall = xpcall;
@@ -81,19 +82,8 @@ end
 --
 DetectedModules = {};
 DetectionFuncs = {
-	luaerror = function(luaerror)
-		local name, version = string.match(luaerror.Version, "^(.+) ([^ ]+)$");
-		return version, name
-	end;
-	jit = function(jit)
-		local name, version = string.match(jit.version, "^(.+) ([^ ]+)$");
-		return version, name
-	end;
 	mysqloo = function(mysqloo)
 		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION);
-	end;
-	CAMI = function(CAMI)
-		return CAMI.Version;
 	end;
 	CPPI = function(CPPI)
 		local name = CPPI:GetName();
@@ -118,24 +108,47 @@ DetectionFuncs = {
 		end
 		return ULib.version or ULib.VERSION;
 	end;
+	GM = function(GM)
+		if (not GM.Version) then
+			return nil;
+		end
+		return GM.Version, string.format("Gamemode: %s", GM.Name);
+	end;
+	_G = function(_G)
+		return _G["VERSION"], "Garry's Mod";
+	end
 }
+DetectionFuncs["GAMEMODE"] = DetectionFuncs["GM"];
 
+local LUAJIT_VERSION = "(.+) (%d+%.%d+%.%d+)";
 local function detectModules()
-	for name, func in pairs(DetectionFuncs) do
-		local module = g[name];
-		if (module) then
-			local _, version, override = xpcall(func, CaptureException, module);
+	local VERSION = g["VERSION"];
+
+	for name, value in pairs(g) do
+		local func = DetectionFuncs[name];
+		if (func) then
+			-- Overrides
+			local _, version, override = xpcall(func, CaptureException, value);
+
 			if (version) then
 				DetectedModules[override or name] = tostring(version);
 			end
-		end
-	end
-end
+		elseif (type(value) == "table" and name ~= "sentry") then
+			-- Magic guessing game
+			local version = value["version"] or value["Version"] or value["VERSION"];
 
-local function detectGamemode()
-	local GM = g['GAMEMODE'];
-	if (GM.Version) then
-		DetectedModules[string.format("Gamemode: %s", GM.Name)] = tostring(GM.Version);
+			if (version and version ~= VERSION and type(version) ~= "function") then
+				version = tostring(version);
+
+				-- Try and deal with LuaJIT style version strings
+				local override, realversion = string.match(version, LUAJIT_VERSION);
+				if (override) then
+					version = realversion
+				end
+
+				DetectedModules[override or name] = version;
+			end
+		end
 	end
 end
 
@@ -407,6 +420,8 @@ function Setup(dsn, config)
 
 	hook.Add("LuaError", "Sentry Integration", OnLuaError);
 
+	-- Once the server has initialised, get all the things with a "version" field
+	hook.Add("Initialize", "Sentry Integration", detectModules)
+	-- Just in case we're being called in the Initialize hook, also get them now.
 	detectModules();
-	hook.Add("Initialize", "Sentry Integration", detectGamemode)
 end
