@@ -197,7 +197,7 @@ local function sentrifyStack(stack)
 	for i, frame in ipairs(stack) do
 		ret[i] = {
 			filename = frame["source"]:sub(2),
-			["function"] = frame["name"],
+			["function"] = frame["name"] or "<unknown>",
 			module = modulify(frame["source"]),
 			lineno = frame["currentline"],
 		}
