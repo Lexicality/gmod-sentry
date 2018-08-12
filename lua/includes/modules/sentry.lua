@@ -331,6 +331,63 @@ end
 
 
 --
+--    Transaction Management
+--
+local transactionStack = {}
+function IsInTransaction()
+	return #transactionStack > 0;
+end
+
+-- If the root transaction was started inside an x?pcall, skipNext can get out of sync
+-- This is one of those things where This Should Never Happen, but gmod is what it is :(
+local function txnSkipHack()
+	if (not IsInTransaction()) then
+		skipNext = nil;
+	end
+end
+
+local function pushTransaction(data)
+	txnSkipHack();
+
+	local txn = {
+		data = data,
+		id = UUID4(),
+	}
+
+	transactionStack[#transactionStack + 1] = txn;
+
+	return txn.id;
+end
+
+local function popTransaction(id)
+	for i, txn in pairs(transactionStack) do
+		if (txn.id == id) then
+			-- Nuke everything above this tranasction in the stack
+			while transactionStack[i] do
+				table.remove(transactionStack, i);
+			end
+
+			txnSkipHack();
+
+			return txn.data;
+		end
+	end
+
+	error("Unknown Transaction '".. tostring(id) .. "'!");
+end
+
+local function getTransactionData()
+	local res = {}
+
+	for _, txn in ipairs(transactionStack) do
+		table.Merge(res, txn.data);
+	end
+
+	return res;
+end
+
+
+--
 --    Context Management
 --
 local function getContexts(extra)
@@ -371,6 +428,9 @@ end
 --    Payload
 --
 local function buildPayload(err, stacktrace, extra)
+	local txn = getTransactionData();
+	table.Merge(txn, extra)
+
 	return {
 		event_id = UUID4(),
 		timestamp = ISODate(os.time()),
@@ -383,14 +443,14 @@ local function buildPayload(err, stacktrace, extra)
 			stacktrace = sentrifyStack(stacktrace),
 		}},
 		modules = DetectedModules,
-		contexts = getContexts(extra),
-		tags = getTags(extra),
+		contexts = getContexts(txn),
+		tags = getTags(txn),
 		environment = config["environment"],
 		release = config["release"],
 		server_name = config["server_name"],
-		level = extra["level"],
-		extra = extra["extra"],
-		culprit = extra["culprit"],
+		level = txn["level"],
+		extra = txn["extra"],
+		culprit = txn["culprit"],
 	};
 end
 
@@ -463,7 +523,7 @@ end
 --
 local function proccessException(err, stack, extra)
 	if (not extra) then
-		extra = {}
+		extra = {};
 	end
 
 	local payload = buildPayload(err, stack, extra);
@@ -501,41 +561,90 @@ function CaptureException(err, extra)
 	return proccessException(err, stack, extra);
 end
 
-local function xpcallCB(extra)
-	return function(err)
-		if (not shouldReport(err)) then
-			return err;
-		end
-
-		local stack = getStack();
-
-		local msg = stripFileData(err, stack);
-
-		proccessException(msg, stack, extra);
-
-		-- Return the unmodified error
+local function xpcallCB(err)
+	if (not shouldReport(err)) then
 		return err;
 	end
+
+	local stack = getStack();
+
+	local msg = stripFileData(err, stack);
+
+	proccessException(msg, stack);
+
+	-- Return the unmodified error
+	return err;
 end
 
-function pcall(func, a, ...)
+function pcall(func, ...)
+	local args = { ... };
+	local extra = {};
+
 	-- If the first argument is a table, it's configuring the exception handler
 	if (type(func) == "table") then
-		local extra = func;
-		func = a;
-		return xpcall(func, xpcallCB(extra), ...)
+		extra = func;
+		func = table.remove(args, 1);
 	end
 
-	-- Otherwise normal xpcall
-	return xpcall(func, xpcallCB(), a, ...)
+	local id = pushTransaction(extra);
+	local res = { xpcall(func, xpcallCB, unpack(args)) };
+	popTransaction(id);
+
+	return unpack(res);
 end
 
 
 --
--- "I'm doing my own thing ok" functions
+-- Transaction Management
 --
 function SkipNext(msg)
 	skipNext = msg;
+end
+
+DISABLE_TXN_PCALL = "no pcall only txn";
+function ExecuteInTransactionSANE(name, txn, func, ...)
+	if (name) then
+		txn["culprit"] = name;
+	end
+
+	local id = pushTransaction(txn);
+	local res;
+	-- Danger zone!
+	if (txn[DISABLE_TXN_PCALL]) then
+		res = { true, func(...) };
+	else
+		res = { xpcall(func, xpcallCB, ...) };
+	end
+	popTransaction(id);
+
+	local success = table.remove(res, 1);
+	if (not success) then
+		local err = res[1];
+		SkipNext(err);
+		-- Boom
+		error(err, 0);
+	end
+
+	return unpack(res);
+end
+
+function ExecuteInTransaction(func, ...)
+	-- vulgar hellcode
+	local name;
+	local txn = {};
+	local args = { ... }
+
+	if (type(func) == "string") then
+		name = func;
+		func = table.remove(args, 1);
+	end
+
+	if (type(func) == "table") then
+		txn = func;
+		func = table.remove(args, 1);
+	end
+
+	return ExecuteInTransactionSANE(name, txn, func, unpack(args));
 end
 
 
