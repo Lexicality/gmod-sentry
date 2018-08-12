@@ -304,7 +304,7 @@ local function getStack()
 end
 
 local function stripFileData(err, stack)
-	local match, file, line = string.match(err, "^((.+%.lua):(%d+): ).+$");
+	local match, file, line = string.match(err, "^((.+):(%d+): ).+$");
 	if (not match) then
 		return err;
 	end
