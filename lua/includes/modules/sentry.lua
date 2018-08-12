@@ -212,6 +212,7 @@ end
 --
 local ADDON_FILE_PATTERN = "^@addons/([^/]+)/lua/(.*).lua$"
 local GAMEMODE_FILE_PATTERN = "^@gamemodes/([^/]+)/(.*).lua$"
+local ADDON_GAMEMODE_FILE_PATTERN = "^@addons/[^/]+/gamemodes/([^/]+)/(.*).lua$"
 local OTHER_FILE_PATTERN = "^@lua/(.*).lua$"
 local function modulify(path)
 	if (path == "=[C]") then
@@ -226,16 +227,32 @@ local function modulify(path)
 	end
 
 	local gamemode, rest = string.match(path, GAMEMODE_FILE_PATTERN);
+	if (not gamemode) then
+		gamemode, rest = string.match(path, ADDON_GAMEMODE_FILE_PATTERN);
+	end
 	if (gamemode) then
 		return gamemode .. "." .. rest:gsub("/", ".");
 	end
 
 	local rest = string.match(path, OTHER_FILE_PATTERN);
-	if (rest) then
+	if (not rest) then
+		return "unknown";
+	end
+
+	local name, id = luaerror.FindWorkshopAddonFileOwner(path:sub(2))
+	if (not name) then
 		return "unknown." .. rest:gsub("/", ".")
 	end
 
-	return "unknown";
+	-- Asciify name
+	name = name:lower():gsub("[^%w]+", "-"):gsub("%-+", "-"):gsub("^%-*(.-)%-*$", "%1");
+	-- Lua doesn't do unicode, so if the workshop name is in cyrilic or something, it'll now be empty
+	if (name:len() < 3) then
+		-- Heck
+		name = "workshop-" .. id;
+	end
+
+	return name .. "." .. rest:gsub("/", ".")
 end
 
 
