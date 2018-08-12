@@ -401,7 +401,6 @@ local function getContexts(extra)
 		},
 		app = {
 			app_start_time = math.floor(os.time() - SysTime()),
-			app_name = GetHostName(),
 		},
 	}
 end
@@ -673,6 +672,10 @@ function Setup(dsn, extra)
 				config[key] = extra[key];
 			end
 		end
+	end
+
+	if (not config["server_name"]) then
+		config["server_name"] = GetHostName();
 	end
 
 	luaerror.EnableRuntimeDetour(true);
