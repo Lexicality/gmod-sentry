@@ -340,6 +340,27 @@ end
 
 
 --
+--    Payload
+--
+local function buildPayload(err, stacktrace)
+	return {
+		event_id = UUID4(),
+		timestamp = ISODate(os.time()),
+		logger = "sentry",
+		platform = "other",
+		sdk = SDK_VALUE,
+		exception = {{
+			type = "error",
+			value = err,
+			stacktrace = sentrifyStack(stacktrace),
+		}},
+		modules = DetectedModules,
+		contexts = getContexts(),
+	};
+end
+
+
+--
 --    Actual HTTP Integration
 --
 local SENTRY_HEADER_FORMAT = (
@@ -353,36 +374,20 @@ local function sentryAuthHeader(now)
 	return SENTRY_HEADER_FORMAT:format(
 		SDK_VALUE.name,
 		SDK_VALUE.version,
-		now,
+		os.time(),
 		config.publickey,
 		config.privatekey
 	)
 end
 
-local function SendToServer(err, stacktrace)
-	local now = os.time();
-	local payload = {
-		event_id = UUID4(),
-		timestamp = ISODate(now),
-		logger = "sentry",
-		platform = "other",
-		sdk = SDK_VALUE,
-		exception = {{
-			type = "error",
-			value = err,
-			stacktrace = sentrifyStack(stacktrace),
-		}},
-		modules = DetectedModules,
-		contexts = getContexts(),
-	};
-
+local function SendToServer(payload)
 	HTTP({
 		url = config.endpoint,
 		method = "POST",
 		body = util.TableToJSON(payload),
 		type = "application/json; charset=utf-8",
 		headers = {
-			["X-Sentry-Auth"] = sentryAuthHeader(now),
+			["X-Sentry-Auth"] = sentryAuthHeader(),
 		},
 		success = function(code, body, headers)
 			local result = util.JSONToTable(body) or {};
@@ -419,6 +424,12 @@ end
 --
 --    Reporting Functions
 --
+local function proccessException(message, stack)
+	local payload = buildPayload(err, stack);
+	SendToServer(payload);
+	return payload.event_id;
+end
+
 local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 	if (not shouldReport()) then
 		return;
@@ -432,16 +443,15 @@ local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 		}
 	end
 
-
-	SendToServer(err, stack)
-	-- TODO
+	proccessException(err, stack);
 end
 
 function CaptureException(err)
 	local stack = getStack();
+
 	err = stripFileData(err, stack);
 
-	SendToServer(err, stack)
+	return proccessException(err, stack);
 end
 
 
