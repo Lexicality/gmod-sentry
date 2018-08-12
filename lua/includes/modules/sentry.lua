@@ -171,7 +171,8 @@ end
 --    Rate Limiting
 --
 local retryAfter = nil;
-local function shouldReport()
+local skipNext = nil;
+local function shouldReport(err)
 	if (not config.endpoint) then
 		return false;
 	elseif (retryAfter ~= nil) then
@@ -182,7 +183,13 @@ local function shouldReport()
 
 		retryAfter = nil;
 	end
-	-- Backoff logic goes here
+
+	if (skipNext == err) then
+		skipNext = nil;
+		return false;
+	end
+	skipNext = nil;
+
 	return true;
 end
 
@@ -466,8 +473,8 @@ local function proccessException(err, stack, extra)
 	return payload.event_id;
 end
 
-local function OnLuaError(is_runtime, _, file, lineno, err, stack)
-	if (not shouldReport()) then
+local function OnLuaError(is_runtime, rawErr, file, lineno, err, stack)
+	if (not shouldReport(rawErr)) then
 		return;
 	end
 
@@ -483,6 +490,10 @@ local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 end
 
 function CaptureException(err, extra)
+	if (not shouldReport(err)) then
+		return nil;
+	end
+
 	local stack = getStack();
 
 	err = stripFileData(err, stack);
@@ -492,6 +503,10 @@ end
 
 local function xpcallCB(extra)
 	return function(err)
+		if (not shouldReport(err)) then
+			return err;
+		end
+
 		local stack = getStack();
 
 		local msg = stripFileData(err, stack);
@@ -513,6 +528,14 @@ function pcall(func, a, ...)
 
 	-- Otherwise normal xpcall
 	return xpcall(func, xpcallCB(), a, ...)
+end
+
+
+--
+-- "I'm doing my own thing ok" functions
+--
+function SkipNext(msg)
+	skipNext = msg;
 end
 
 

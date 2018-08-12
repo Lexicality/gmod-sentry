@@ -1,7 +1,7 @@
 local function throws(arg1, arg2)
 	local foo = 8;
 	local bar = arg1 .. arg2;
-	error("oops", 2);
+	error("oops");
 end
 
 local function level1(arg1)
