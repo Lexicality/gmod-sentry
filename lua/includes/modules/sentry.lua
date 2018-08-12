@@ -440,7 +440,7 @@ local function getUserContext(extra)
 	return {
 		id = ply:SteamID(),
 		username = ply:Nick(),
-		ip_address = ply:IPAddress(),
+		ip = ply:IPAddress(),
 		steamid64 = ply:SteamID64(),
 	}
 end
