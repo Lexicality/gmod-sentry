@@ -329,6 +329,40 @@ local function stripFileData(err, stack)
 	return err;
 end
 
+local ADDON_BLAME_PATTERN = "^addons/([^/]+)/";
+local GAMEMODE_BLAME_PATTERN = "^gamemodes/([^/]+)/";
+local function calculateBlame(stack)
+	for _, frame in pairs(stack) do
+		if (frame["source"] ~= "=[C]") then
+			local source = frame["source"]:sub(2);
+
+			local wsname, wsid = luaerror.FindWorkshopAddonFileOwner(source);
+			if (wsname) then
+				return {
+					{ "addon", "workshop-" .. wsid },
+					{ "addon-name", wsname },
+				}
+			end
+
+			local addon = string.match(source, ADDON_BLAME_PATTERN);
+			if (addon) then
+				return {
+					{ "addon", addon },
+				}
+			end
+
+			local gamemode = string.match(source, GAMEMODE_BLAME_PATTERN);
+			if (gamemode) then
+				return {
+					{ "gamemode", gamemode },
+				}
+			end
+		end
+	end
+
+	return {};
+end
+
 
 --
 --    Transaction Management
@@ -430,6 +464,9 @@ local function buildPayload(err, stacktrace, extra)
 	local txn = getTransactionData();
 	table.Merge(txn, extra)
 
+	local tags = getTags(txn);
+	table.Add(tags, calculateBlame(stacktrace));
+
 	return {
 		event_id = UUID4(),
 		timestamp = ISODate(os.time()),
@@ -443,7 +480,7 @@ local function buildPayload(err, stacktrace, extra)
 		}},
 		modules = DetectedModules,
 		contexts = getContexts(txn),
-		tags = getTags(txn),
+		tags = tags,
 		environment = config["environment"],
 		release = config["release"],
 		server_name = config["server_name"],
