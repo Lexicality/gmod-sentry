@@ -42,6 +42,9 @@ local config = {
 	publickey = nil,
 	projectID = nil,
 	tags = {},
+	release = nil,
+	environment = nil,
+	server_name = nil,
 }
 
 --
@@ -375,6 +378,12 @@ local function buildPayload(err, stacktrace, extra)
 		modules = DetectedModules,
 		contexts = getContexts(extra),
 		tags = getTags(extra),
+		environment = config["environment"],
+		release = config["release"],
+		server_name = config["server_name"],
+		level = extra["level"],
+		extra = extra["extra"],
+		culprit = extra["culprit"],
 	};
 end
 
@@ -522,11 +531,16 @@ local function parseDSN(dsn)
 	config.endpoint = scheme .. host .. "/api/" .. project .. "/store/";
 end
 
+local settables = { "tags", "release", "environment", "server_name" }
 function Setup(dsn, extra)
 	parseDSN(dsn)
 
-	if (extra["tags"]) then
-		config["tags"] = extra["tags"];
+	if (extra) then
+		for _, key in pairs(settables) do
+			if (extra[key] ~= nil) then
+				config[key] = extra[key];
+			end
+		end
 	end
 
 	luaerror.EnableRuntimeDetour(true);
