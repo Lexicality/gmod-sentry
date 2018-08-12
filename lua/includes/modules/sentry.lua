@@ -5,6 +5,7 @@ end
 
 local GetHostName = GetHostName;
 local HTTP = HTTP;
+local IsValid = IsValid;
 local ServerLog = ServerLog;
 local SysTime = SysTime;
 local bit = bit;
@@ -424,6 +425,20 @@ end
 --
 --    Context Management
 --
+local function getUserContext(extra)
+	local ply = extra["user"]
+	if (not IsValid(ply)) then
+		return nil;
+	end
+
+	return {
+		id = ply:SteamID(),
+		username = ply:Nick(),
+		ip_address = ply:IPAddress(),
+		steamid64 = ply:SteamID64(),
+	}
+end
+
 local function getContexts(extra)
 	return {
 		os = {
@@ -436,6 +451,7 @@ local function getContexts(extra)
 		app = {
 			app_start_time = math.floor(os.time() - SysTime()),
 		},
+		user = getUserContext(extra),
 	}
 end
 
