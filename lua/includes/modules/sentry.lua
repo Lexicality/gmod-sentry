@@ -37,10 +37,11 @@ module("sentry");
 --    Global Config
 --
 local config = {
-	endpoint = nil;
-	privatekey = nil;
-	publickey = nil;
-	projectID = nil;
+	endpoint = nil,
+	privatekey = nil,
+	publickey = nil,
+	projectID = nil,
+	tags = {},
 }
 
 --
@@ -322,7 +323,7 @@ end
 --
 --    Context Management
 --
-local function getContexts()
+local function getContexts(extra)
 	return {
 		os = {
 			name = GetOSName(),
@@ -338,11 +339,28 @@ local function getContexts()
 	}
 end
 
+local function getTags(extra)
+	local tags = {};
+
+	for name, value in pairs(config.tags) do
+		table.insert(tags, {name, value});
+	end
+
+	-- These _suppliment_ rather than replace sdk tags
+	if (extra["tags"]) then
+		for name, value in pairs(extra.tags) do
+			table.insert(tags, {name, value});
+		end
+	end
+
+	return tags
+end
+
 
 --
 --    Payload
 --
-local function buildPayload(err, stacktrace)
+local function buildPayload(err, stacktrace, extra)
 	return {
 		event_id = UUID4(),
 		timestamp = ISODate(os.time()),
@@ -355,7 +373,8 @@ local function buildPayload(err, stacktrace)
 			stacktrace = sentrifyStack(stacktrace),
 		}},
 		modules = DetectedModules,
-		contexts = getContexts(),
+		contexts = getContexts(extra),
+		tags = getTags(extra),
 	};
 end
 
@@ -426,9 +445,15 @@ end
 --
 --    Reporting Functions
 --
-local function proccessException(message, stack)
-	local payload = buildPayload(err, stack);
+local function proccessException(err, stack, extra)
+	if (not extra) then
+		extra = {}
+	end
+
+	local payload = buildPayload(err, stack, extra);
+
 	SendToServer(payload);
+
 	return payload.event_id;
 end
 
@@ -448,12 +473,12 @@ local function OnLuaError(is_runtime, _, file, lineno, err, stack)
 	proccessException(err, stack);
 end
 
-function CaptureException(err)
+function CaptureException(err, extra)
 	local stack = getStack();
 
 	err = stripFileData(err, stack);
 
-	return proccessException(err, stack);
+	return proccessException(err, stack, extra);
 end
 
 
@@ -472,8 +497,12 @@ local function parseDSN(dsn)
 	config.endpoint = scheme .. host .. "/api/" .. project .. "/store/";
 end
 
-function Setup(dsn, config)
+function Setup(dsn, extra)
 	parseDSN(dsn)
+
+	if (extra["tags"]) then
+		config["tags"] = extra["tags"];
+	end
 
 	luaerror.EnableRuntimeDetour(true);
 	luaerror.EnableCompiletimeDetour(true);
