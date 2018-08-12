@@ -3,6 +3,7 @@ if (not luaerror) then
 	error("Please make sure you've installed gm_luaerror correctly")
 end
 
+local GetHostName = GetHostName;
 local HTTP = HTTP;
 local ServerLog = ServerLog;
 local SysTime = SysTime;
