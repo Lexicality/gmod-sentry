@@ -386,6 +386,7 @@ local function pushTransaction(data)
 
 	local txn = {
 		data = data,
+		ctx = {},
 		id = UUID4(),
 	}
 
@@ -416,9 +417,14 @@ local function getTransactionData()
 
 	for _, txn in ipairs(transactionStack) do
 		table.Merge(res, txn.data);
+		table.Merge(res, txn.ctx);
 	end
 
 	return res;
+end
+
+local function getCurrentTransaction()
+	return transactionStack[#transactionStack];
 end
 
 
@@ -697,6 +703,38 @@ function ExecuteInTransaction(func, ...)
 	end
 
 	return ExecuteInTransactionSANE(name, txn, func, unpack(args));
+end
+
+function MergeContext(data)
+	local txn = getCurrentTransaction();
+	-- This might be suprising behaviour, but I don't have any better ideas
+	if (not txn) then
+		return;
+	end
+
+	table.Merge(txn.ctx, data);
+end
+
+function ClearContext()
+	local txn = getCurrentTransaction();
+	-- This might be suprising behaviour, but I don't have any better ideas
+	if (not txn) then
+		return;
+	end
+
+	txn.ctx = {};
+end
+
+function TagsContext(tags)
+	MergeContext({ tags = tags });
+end
+
+function ExtraContext(exta)
+	MergeContext({ extra = extra });
+end
+
+function UserContext(user)
+	MergeContext({ user = user });
 end
 
 
