@@ -12,10 +12,13 @@ local bit = bit;
 local error = error;
 local hook = hook;
 local ipairs = ipairs;
+local isstring = isstring;
 local luaerror = luaerror;
 local math = math;
+local net = net;
 local os = os;
 local pairs = pairs;
+local setmetatable = setmetatable;
 local string = string;
 local system = system;
 local table = table;
@@ -46,6 +49,7 @@ local config = {
 	release = nil,
 	environment = nil,
 	server_name = nil,
+	no_detour = {},
 }
 
 --
@@ -373,17 +377,7 @@ function IsInTransaction()
 	return #transactionStack > 0;
 end
 
--- If the root transaction was started inside an x?pcall, skipNext can get out of sync
--- This is one of those things where This Should Never Happen, but gmod is what it is :(
-local function txnSkipHack()
-	if (not IsInTransaction()) then
-		skipNext = nil;
-	end
-end
-
 local function pushTransaction(data)
-	txnSkipHack();
-
 	local txn = {
 		data = data,
 		ctx = {},
@@ -403,7 +397,15 @@ local function popTransaction(id)
 				table.remove(transactionStack, i);
 			end
 
-			txnSkipHack();
+			-- If this is the last transaction, discard any pending skips
+			-- "Bug": If you start a transaction from within builtin xpcall inside an
+			-- active transaction, that transaction fails and you immediately call that
+			-- transaction again and it fails again, the second error won't be reported
+			-- to sentry.
+			-- If you run into this bug, reevaulate your life choices
+			if (not IsInTransaction()) then
+				skipNext = nil;
+			end
 
 			return txn.data;
 		end
@@ -739,6 +741,261 @@ end
 
 
 --
+--    Detours
+--
+local detourMT = {}
+detourMT.__index = detourMT;
+function detourMT:__call(...)
+	return self.override(self, ...);
+end
+
+function detourMT:_get(extra)
+	-- I can't think of a sane way of doing this
+	local p = self.path;
+	if (#p == 1) then
+		return g[p[1] .. extra];
+	elseif (#p == 2) then
+		return g[p[1]][p[2] .. extra];
+	else
+		error("Not implemented");
+	end
+end
+
+function detourMT:_set(value, extra)
+	extra = extra or "";
+	local p = self.path;
+	if (#p == 1) then
+		g[p[1] .. extra] = value;
+	elseif (#p == 2) then
+		g[p[1]][p[2] .. extra] = value;
+	else
+		error("Not implemented");
+	end
+end
+
+function detourMT:_reset_existing_detour()
+	local detour = self:_get("_DT");
+	if (not detour) then
+		return false;
+	end
+
+	detour:Reset();
+	return true;
+end
+
+function detourMT:_get_valid()
+	if (self:_reset_existing_detour()) then
+		return self:_get_valid();
+	end
+	local func = self:_get("");
+
+	if (type(func) ~= "function") then
+		return false;
+	end
+
+	local info = debug.getinfo(func, "S");
+	if (info["source"] ~= "@" .. self.module) then
+		return false;
+	end
+
+	return func;
+end
+
+function detourMT:Detour()
+	local func = self:_get_valid();
+	if (not func) then
+		error("Can't detour!");
+	end
+	self.original = func;
+	self:_set(self, "_DT");
+	-- Engine functions won't talk to magical tables with the __call metafield. :(
+	self:_set(function(...) return self(...) end);
+end
+
+function detourMT:Reset()
+	self:_set(self.original);
+end
+
+function detourMT:Validate(module)
+	return self:_get_valid() ~= false;
+end
+
+local function createDetour(func, target, expectedModule)
+	local detour = {
+		override = func,
+		path = string.Split(target, "."),
+		module = expectedModule,
+	}
+	setmetatable(detour, detourMT);
+
+	if (not detour:Validate()) then
+		return nil;
+	end
+
+	return detour;
+end
+
+local function concommandRun(detour, ply, command, ...)
+	local cmd = command:lower();
+	ExecuteInTransactionSANE(
+		"cmd/" .. cmd,
+		{
+			tags = {
+				concommand = cmd,
+			},
+			user = ply,
+		},
+		detour.original, ply, command, ...
+	);
+end
+
+local function netIncoming(detour, len, ply)
+	local id = net.ReadHeader();
+	local name = util.NetworkIDToString(id);
+	if (not name) then
+		CaptureException(
+			string.format("Unknown network message with ID %d", id),
+			{
+				user = ply,
+				culprit = "net/" .. tostring(id),
+			}
+		)
+		return;
+	end
+
+	local func = net.Receivers[name:lower()];
+	if (not func) then
+		CaptureException(
+			string.format("Unknown network message with name %s", name),
+			{
+				user = ply,
+				tags = {
+					net_message = name,
+				},
+				culprit = "net/" .. name,
+			}
+		)
+		return;
+	end
+
+	-- len includes the 16 bit int which told us the message name
+	len = len - 16
+
+	ExecuteInTransactionSANE(
+		"net/" .. name,
+		{
+			user = ply,
+			tags = {
+				net_message = name,
+			},
+		},
+		func, len, ply
+	);
+end
+
+local HOOK_TXN_FORMAT = "hook/%s/%s";
+local function actualHookCall(name, gm, ...)
+	local hooks = hook.GetTable()[name];
+
+	-- Heuristics: Pretty much any hook that operates on a player has the player as the first argument
+	local ply = ...;
+	if (not (type(ply) == "Player" and IsValid(ply))) then
+		ply = nil;
+	end
+
+	local ctx = {
+		[DISABLE_TXN_PCALL] = true,
+		user = ply,
+	}
+
+	if (hooks) then
+		local a, b, c, d, e, f;
+		for hookname, func in pairs(hooks) do
+			if (isstring(hookname)) then
+				a, b, c, d, e, f = ExecuteInTransactionSANE(
+					string.format(HOOK_TXN_FORMAT, name, hookname),
+					ctx,
+					func,
+					...
+				);
+			elseif (IsValid(hookname)) then
+				a, b, c, d, e, f = ExecuteInTransactionSANE(
+					-- This won't be a great name, but its' the best we can do
+					string.format(HOOK_TXN_FORMAT, name, tostring(hookname)),
+					ctx,
+					func,
+					hookname,
+					...
+				);
+			else
+				hooks[hookname] = nil;
+			end
+
+			if (a ~= nil) then
+				return a, b, c, d, e, f;
+			end
+		end
+	end
+
+	if (not gm) then
+		return;
+	end
+
+	local gmfunc = gm[name]
+
+	if (not gmfunc) then
+		return;
+	end
+
+	return ExecuteInTransactionSANE(
+		string.format(HOOK_TXN_FORMAT, "GM", name),
+		ctx,
+		gmfunc,
+		gm,
+		...
+	);
+end
+
+local function hookCall(detour, name, ...)
+	ExecuteInTransactionSANE(nil, {
+		tags = {
+			hook = name,
+		},
+	}, actualHookCall, name, ...)
+end
+
+local toDetour = {
+	{
+		target = "concommand.Run",
+		override = concommandRun,
+		module = "lua/includes/modules/concommand.lua",
+	},
+	{
+		target = "net.Incoming",
+		override = netIncoming,
+		module = "lua/includes/extensions/net.lua",
+	},
+	{
+		target = "hook.Call",
+		override = hookCall,
+		module = "lua/includes/modules/hook.lua",
+	},
+}
+local function doDetours()
+	local no_detour = config["no_detour"];
+	for _, deets in pairs(toDetour) do
+		if (not no_detour[deets.target]) then
+			local detour = createDetour(deets.override, deets.target, deets.module);
+			if (not detour) then
+				error(deets.target .. " is already overriden, but config.no_detour." .. deets.target .. " is not set!");
+			end
+			detour:Detour();
+		end
+	end
+end
+
+
+--
 -- Initial Configuration
 --
 local DSN_FORMAT = "^(https?://)(%w+):(%w+)@([%w.:]+)/(%w+)$";
@@ -753,7 +1010,7 @@ local function parseDSN(dsn)
 	config.endpoint = scheme .. host .. "/api/" .. project .. "/store/";
 end
 
-local settables = { "tags", "release", "environment", "server_name" }
+local settables = { "tags", "release", "environment", "server_name", "no_detour" }
 function Setup(dsn, extra)
 	parseDSN(dsn)
 
@@ -768,6 +1025,8 @@ function Setup(dsn, extra)
 	if (not config["server_name"]) then
 		config["server_name"] = GetHostName();
 	end
+
+	doDetours();
 
 	luaerror.EnableRuntimeDetour(true);
 	luaerror.EnableCompiletimeDetour(true);
