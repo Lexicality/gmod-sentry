@@ -329,7 +329,7 @@ local function getContexts()
 		},
 		runtime = {
 			name = "Garry's Mod",
-			version = g["VERSION"],
+			version = g["VERSIONSTR"],
 		},
 		app = {
 			app_start_time = math.floor(os.time() - SysTime()),
