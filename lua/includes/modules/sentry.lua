@@ -395,17 +395,19 @@ local function SendToServer(payload)
 			if (detectRateLimiting(code, headers)) then
 				return;
 			elseif (code ~= 200) then
+				local error = headers["X-Sentry-Error"] or result["error"];
+
 				if (code >= 500) then
-					WriteLog("Server is offline, trying later");
+					WriteLog("Server is offline (%s), trying later", error or code);
 					doBackoff(2);
 					return
 				elseif (code == 401) then
-					WriteLog("Access denied: %s", result["error"]);
+					WriteLog("Access denied - shutting down: %s", error or body);
 					-- If sentry tells us to go away, go away properly
 					config.endpoint = nil;
 					return;
 				else
-					WriteLog("Got HTTP %d from the server: %s", code, result["error"] or body)
+					WriteLog("Got HTTP %d from the server: %s", code, error or body)
 					return;
 				end
 			end
