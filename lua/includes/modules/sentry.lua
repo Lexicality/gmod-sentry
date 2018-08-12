@@ -481,6 +481,31 @@ function CaptureException(err, extra)
 	return proccessException(err, stack, extra);
 end
 
+local function xpcallCB(extra)
+	return function(err)
+		local stack = getStack();
+
+		local msg = stripFileData(err, stack);
+
+		proccessException(msg, stack, extra);
+
+		-- Return the unmodified error
+		return err;
+	end
+end
+
+function pcall(func, a, ...)
+	-- If the first argument is a table, it's configuring the exception handler
+	if (type(func) == "table") then
+		local extra = func;
+		func = a;
+		return xpcall(func, xpcallCB(extra), ...)
+	end
+
+	-- Otherwise normal xpcall
+	return xpcall(func, xpcallCB(), a, ...)
+end
+
 
 --
 -- Initial Configuration

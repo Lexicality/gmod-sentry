@@ -30,3 +30,8 @@ function drspang()
 		ErrorNoHalt(err);
 	end
 end
+
+function drspangles()
+	sentry.pcall(level5)
+end
+
