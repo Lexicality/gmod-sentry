@@ -105,7 +105,7 @@ end
 DetectedModules = {};
 DetectionFuncs = {
 	mysqloo = function(mysqloo)
-		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION);
+		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION or 0);
 	end;
 	CPPI = function(CPPI)
 		local name = CPPI:GetName();
