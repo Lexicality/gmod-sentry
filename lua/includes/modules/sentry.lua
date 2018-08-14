@@ -895,8 +895,6 @@ end
 
 local HOOK_TXN_FORMAT = "hook/%s/%s";
 local function actualHookCall(name, gm, ...)
-	local hooks = hook.GetTable()[name];
-
 	-- Heuristics: Pretty much any hook that operates on a player has the player as the first argument
 	local ply = ...;
 	if (not (type(ply) == "Player" and IsValid(ply))) then
@@ -908,6 +906,7 @@ local function actualHookCall(name, gm, ...)
 		user = ply,
 	}
 
+	local hooks = hook.GetTable()[name];
 	if (hooks) then
 		local a, b, c, d, e, f;
 		for hookname, func in pairs(hooks) do
@@ -937,23 +936,15 @@ local function actualHookCall(name, gm, ...)
 		end
 	end
 
-	if (not gm) then
-		return;
+	if (gm and gm[name]) then
+		return ExecuteInTransactionSANE(
+			string.format(HOOK_TXN_FORMAT, "GM", name),
+			ctx,
+			gm[name],
+			gm,
+			...
+		);
 	end
-
-	local gmfunc = gm[name]
-
-	if (not gmfunc) then
-		return;
-	end
-
-	return ExecuteInTransactionSANE(
-		string.format(HOOK_TXN_FORMAT, "GM", name),
-		ctx,
-		gmfunc,
-		gm,
-		...
-	);
 end
 
 local function hookCall(detour, name, ...)
@@ -961,7 +952,25 @@ local function hookCall(detour, name, ...)
 		tags = {
 			hook = name,
 		},
-	}, actualHookCall, name, ...)
+	}, detour.func, name, ...)
+end
+
+local hookTypes = {
+	{
+		override = actualHookCall,
+		module = "lua/includes/modules/hook.lua",
+	},
+}
+local function detourHookCall()
+	for _, hook in pairs(hookTypes) do
+		local detour = createDetour(hookCall, "hook.Call", hook.module);
+		if (detour) then
+			detour.func = hook.override;
+			return detour;
+		end
+	end
+
+	return false;
 end
 
 local toDetour = {
@@ -975,22 +984,30 @@ local toDetour = {
 		override = netIncoming,
 		module = "lua/includes/extensions/net.lua",
 	},
-	{
-		target = "hook.Call",
-		override = hookCall,
-		module = "lua/includes/modules/hook.lua",
-	},
 }
+local ERR_PREDETOURED = "Cannot override function %q as it is already overidden! Maybe add it to no_detour?"
 local function doDetours()
-	local no_detour = config["no_detour"];
+	local no_detour = {}
+	for _, funcname in ipairs(config["no_detour"]) do
+		no_detour[funcname] = true;
+	end
+
 	for _, deets in pairs(toDetour) do
 		if (not no_detour[deets.target]) then
 			local detour = createDetour(deets.override, deets.target, deets.module);
 			if (not detour) then
-				error(deets.target .. " is already overriden, but config.no_detour." .. deets.target .. " is not set!");
+				error(string.format(ERR_PREDETOURED, deets.target))
 			end
 			detour:Detour();
 		end
+	end
+
+	if (not no_detour["hook.Call"]) then
+		local detour = detourHookCall();
+		if (not detour) then
+			error(string.format(ERR_PREDETOURED, "hook.Call"))
+		end
+		detour:Detour();
 	end
 end
 
