@@ -919,7 +919,7 @@ local function actualHookCall(name, gm, ...)
 				);
 			elseif (IsValid(hookname)) then
 				a, b, c, d, e, f = ExecuteInTransactionSANE(
-					-- This won't be a great name, but its' the best we can do
+					-- This won't be a great name, but it's the best we can do
 					string.format(HOOK_TXN_FORMAT, name, tostring(hookname)),
 					ctx,
 					func,
@@ -932,6 +932,62 @@ local function actualHookCall(name, gm, ...)
 
 			if (a ~= nil) then
 				return a, b, c, d, e, f;
+			end
+		end
+	end
+
+	if (gm and gm[name]) then
+		return ExecuteInTransactionSANE(
+			string.format(HOOK_TXN_FORMAT, "GM", name),
+			ctx,
+			gm[name],
+			gm,
+			...
+		);
+	end
+end
+
+local function ulxHookCall(name, gm, ...)
+	-- Heuristics: Pretty much any hook that operates on a player has the player as the first argument
+	local ply = ...;
+	if (not (type(ply) == "Player" and IsValid(ply))) then
+		ply = nil;
+	end
+
+	local ctx = {
+		[DISABLE_TXN_PCALL] = true,
+		user = ply,
+	}
+
+	local hooks = hook.GetULibTable()[name];
+	if (hooks) then
+		local a, b, c, d, e, f, func;
+		for i = -2, 2 do
+			for hookname, t in pairs(hooks[i]) do
+				func = t.fn;
+				if (t.isstring) then
+					a, b, c, d, e, f = ExecuteInTransactionSANE(
+						string.format(HOOK_TXN_FORMAT, name, hookname),
+						ctx,
+						func,
+						...
+					);
+				elseif (IsValid(hookname)) then
+					a, b, c, d, e, f = ExecuteInTransactionSANE(
+						-- This won't be a great name, but it's the best we can do
+						string.format(HOOK_TXN_FORMAT, name, tostring(hookname)),
+						ctx,
+						func,
+						hookname,
+						...
+					);
+				else
+					hooks[i][hookname] = nil;
+				end
+
+				if (a ~= nil and i > -2 and i < 2) then
+					return a, b, c, d, e, f;
+				end
 			end
 		end
 	end
@@ -960,6 +1016,10 @@ local hookTypes = {
 		override = actualHookCall,
 		module = "lua/includes/modules/hook.lua",
 	},
+	{
+		override = ulxHookCall,
+		module = "lua/ulib/shared/hook.lua",
+	}
 }
 local function detourHookCall()
 	for _, hook in pairs(hookTypes) do
