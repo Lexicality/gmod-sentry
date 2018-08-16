@@ -1019,7 +1019,11 @@ local hookTypes = {
 	{
 		override = ulxHookCall,
 		module = "lua/ulib/shared/hook.lua",
-	}
+	},
+	{
+		override = ulxHookCall,
+		module = "addons/ulib/lua/ulib/shared/hook.lua",
+	},
 }
 local function detourHookCall()
 	for _, hook in pairs(hookTypes) do
