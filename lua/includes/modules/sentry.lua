@@ -1004,7 +1004,7 @@ local function ulxHookCall(name, gm, ...)
 end
 
 local function hookCall(detour, name, ...)
-	ExecuteInTransactionSANE(nil, {
+	return ExecuteInTransactionSANE(nil, {
 		tags = {
 			hook = name,
 		},
