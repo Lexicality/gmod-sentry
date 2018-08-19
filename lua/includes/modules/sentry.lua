@@ -17,6 +17,8 @@
 
 ---
 -- Provides an interface to [Sentry](https://sentry.io) from GLua
+--
+-- [Github Page](https://github.com/lexicality/gmod-sentry/)
 -- @module sentry
 -- @author Lex Robinson
 -- @copyright 2018 Lex Robinson
@@ -146,13 +148,11 @@ end
 ---
 -- All the modules Sentry has detected.
 -- Anything added to this will also be sent to Sentry
--- @within Module Detection
 -- @usage sentry.DetectedModules["foo"] = "7.2"
 DetectedModules = {};
 
 ---
 -- More complex ways of detecting a module's version
--- @within Module Detection
 -- @field _
 -- @usage sentry.DetectionFuncs["global name"] = function(global_value) return "version", "optional override name" end
 DetectionFuncs = {
