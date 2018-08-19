@@ -107,6 +107,7 @@ end
 
 ---
 -- Generates an ISO 8601/RFC 6350 formatted date
+-- @within util
 -- @param time The unix timestamp to generate the date from
 -- @return The date string
 function ISODate(time)
@@ -115,6 +116,7 @@ end
 
 ---
 -- Generates a pretty printed name of the current operating sytem
+-- @within util
 -- @return "Windows", "macOS", "Linux" or nil.
 function GetOSName()
 	if (system.IsWindows()) then
@@ -129,6 +131,7 @@ end
 
 ---
 -- Writes a logline to the Server log, using string.format
+-- @within util
 -- @param message Logline to write
 -- @param ... Values to format into it
 local function WriteLog(message, ...)
@@ -143,11 +146,13 @@ end
 ---
 -- All the modules Sentry has detected.
 -- Anything added to this will also be sent to Sentry
+-- @within Module Detection
 -- @usage sentry.DetectedModules["foo"] = "7.2"
 DetectedModules = {};
 
 ---
 -- More complex ways of detecting a module's version
+-- @within Module Detection
 -- @field _
 -- @usage sentry.DetectionFuncs["global name"] = function(global_value) return "version", "optional override name" end
 DetectionFuncs = {
@@ -459,6 +464,7 @@ local transactionStack = {}
 ---
 -- Checks if Sentry thinks a transaction is active
 -- Ideally true, but could be false if an undetoured entrypoint is used
+-- @within Transactions
 -- @return true or false
 function IsInTransaction()
 	return #transactionStack > 0;
@@ -834,6 +840,7 @@ end
 
 ---
 -- [INTERNAL] Executes a function in transaction context
+-- @within Transactions
 -- @param name The name of the transaction or nil if not applicable
 -- @param txn The data to attach to the transaction
 -- @param func The function to execute
@@ -904,6 +911,7 @@ end
 -- Add data to the current transaction's context.
 -- Anything here will override the transaction's starting values
 -- Does nothing if no transaction is active
+-- @within Transactions
 -- @usage sentry.MergeContext({ culprit = "your mum" })
 -- @param data Data to add
 function MergeContext(data)
@@ -920,6 +928,7 @@ end
 -- Remove any extra data from the current transaction.
 -- Does not affect the data the transaction was started with.
 -- Does nothing if no transaction is active
+-- @within Transactions
 function ClearContext()
 	local txn = getCurrentTransaction();
 	-- This might be suprising behaviour, but I don't have any better ideas
@@ -933,6 +942,7 @@ end
 ---
 -- Merge tags into the current transaction's context
 -- Does nothing if no transaction is active
+-- @within Transactions
 -- @usage sentry.TagsContext({ somecondition = "passed" })
 -- @param tags A table of tag names as keys, values as values
 function TagsContext(tags)
@@ -942,6 +952,7 @@ end
 ---
 -- Merge the extra field into the current transaction's context
 -- Does nothing if no transaction is active
+-- @within Transactions
 -- @usage sentry.ExtraContext({ numplayers = 23 })
 -- @param tags A table of arbitrary data to send to Sentry
 function ExtraContext(exta)
@@ -952,6 +963,7 @@ end
 ---
 -- Set the current player for this context
 -- Does nothing if no transaction is active
+-- @within Transactions
 -- @usage sentry.UserContext(ply)
 -- @param user A player object
 function UserContext(user)

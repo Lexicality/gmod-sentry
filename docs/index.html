@@ -30,7 +30,9 @@
 <h2>Contents</h2>
 <ul>
 <li><a href="#Functions">Functions</a></li>
-<li><a href="#Tables">Tables</a></li>
+<li><a href="#util">util</a></li>
+<li><a href="#Module_Detection">Module Detection</a></li>
+<li><a href="#Transactions">Transactions</a></li>
 </ul>
 
 
@@ -62,19 +64,6 @@
 <h2><a href="#Functions">Functions</a></h2>
 <table class="function_list">
 	<tr>
-	<td class="name" nowrap><a href="#ISODate">ISODate (time)</a></td>
-	<td class="summary">Generates an ISO 8601/RFC 6350 formatted date</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#GetOSName">GetOSName ()</a></td>
-	<td class="summary">Generates a pretty printed name of the current operating sytem</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#IsInTransaction">IsInTransaction ()</a></td>
-	<td class="summary">Checks if Sentry thinks a transaction is active
- Ideally true, but could be false if an undetoured entrypoint is used</td>
-	</tr>
-	<tr>
 	<td class="name" nowrap><a href="#CaptureException">CaptureException (err, extra)</a></td>
 	<td class="summary">Captures an exception for sentry, using the current stack as the error's stack
  Most useful inside an xpcall handler</td>
@@ -85,12 +74,46 @@
  but uploads the error to Sentry as well as returning it</td>
 	</tr>
 	<tr>
-	<td class="name" nowrap><a href="#ExecuteTransaction">ExecuteTransaction (name, txn, func, ...)</a></td>
-	<td class="summary">[INTERNAL] Executes a function in transaction context</td>
-	</tr>
-	<tr>
 	<td class="name" nowrap><a href="#ExecuteInTransaction">ExecuteInTransaction ([name][, txn], func, ...)</a></td>
 	<td class="summary">Executes a function in transaction context.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Setup">Setup (dsn[, extra])</a></td>
+	<td class="summary">Configures and activates Sentry</td>
+	</tr>
+</table>
+<h2><a href="#util">util</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#ISODate">ISODate (time)</a></td>
+	<td class="summary">Generates an ISO 8601/RFC 6350 formatted date</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#GetOSName">GetOSName ()</a></td>
+	<td class="summary">Generates a pretty printed name of the current operating sytem</td>
+	</tr>
+</table>
+<h2><a href="#Module_Detection">Module Detection</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#DetectedModules">DetectedModules</a></td>
+	<td class="summary">All the modules Sentry has detected.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#DetectionFuncs">DetectionFuncs</a></td>
+	<td class="summary">More complex ways of detecting a module's version</td>
+	</tr>
+</table>
+<h2><a href="#Transactions">Transactions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#IsInTransaction">IsInTransaction ()</a></td>
+	<td class="summary">Checks if Sentry thinks a transaction is active
+ Ideally true, but could be false if an undetoured entrypoint is used</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#ExecuteTransaction">ExecuteTransaction (name, txn, func, ...)</a></td>
+	<td class="summary">[INTERNAL] Executes a function in transaction context</td>
 	</tr>
 	<tr>
 	<td class="name" nowrap><a href="#MergeContext">MergeContext (data)</a></td>
@@ -115,21 +138,6 @@
 	<td class="summary">Set the current player for this context
  Does nothing if no transaction is active</td>
 	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#Setup">Setup (dsn[, extra])</a></td>
-	<td class="summary">Configures and activates Sentry</td>
-	</tr>
-</table>
-<h2><a href="#Tables">Tables</a></h2>
-<table class="function_list">
-	<tr>
-	<td class="name" nowrap><a href="#DetectedModules">DetectedModules</a></td>
-	<td class="summary">All the modules Sentry has detected.</td>
-	</tr>
-	<tr>
-	<td class="name" nowrap><a href="#DetectionFuncs">DetectionFuncs</a></td>
-	<td class="summary">More complex ways of detecting a module's version</td>
-	</tr>
 </table>
 
 <br/>
@@ -139,70 +147,6 @@
     <h2 class="section-header "><a name="Functions"></a>Functions</h2>
 
     <dl class="function">
-    <dt>
-    <a name = "ISODate"></a>
-    <strong>ISODate (time)</strong>
-    </dt>
-    <dd>
-    Generates an ISO 8601/RFC 6350 formatted date
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">time</span>
-         The unix timestamp to generate the date from
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-        The date string
-    </ol>
-
-
-
-
-</dd>
-    <dt>
-    <a name = "GetOSName"></a>
-    <strong>GetOSName ()</strong>
-    </dt>
-    <dd>
-    Generates a pretty printed name of the current operating sytem
-
-
-
-    <h3>Returns:</h3>
-    <ol>
-
-        "Windows", "macOS", "Linux" or nil.
-    </ol>
-
-
-
-
-</dd>
-    <dt>
-    <a name = "IsInTransaction"></a>
-    <strong>IsInTransaction ()</strong>
-    </dt>
-    <dd>
-    Checks if Sentry thinks a transaction is active
- Ideally true, but could be false if an undetoured entrypoint is used
-
-
-
-    <h3>Returns:</h3>
-    <ol>
-
-        true or false
-    </ol>
-
-
-
-
-</dd>
     <dt>
     <a name = "CaptureException"></a>
     <strong>CaptureException (err, extra)</strong>
@@ -266,40 +210,6 @@
 
 </dd>
     <dt>
-    <a name = "ExecuteTransaction"></a>
-    <strong>ExecuteTransaction (name, txn, func, ...)</strong>
-    </dt>
-    <dd>
-    [INTERNAL] Executes a function in transaction context
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">name</span>
-         The name of the transaction or nil if not applicable
-        </li>
-        <li><span class="parameter">txn</span>
-         The data to attach to the transaction
-        </li>
-        <li><span class="parameter">func</span>
-         The function to execute
-        </li>
-        <li><span class="parameter">...</span>
-         Arguments to pass to the function
-        </li>
-    </ul>
-
-    <h3>Returns:</h3>
-    <ol>
-
-        Whatever func returns
-    </ol>
-
-
-
-
-</dd>
-    <dt>
     <a name = "ExecuteInTransaction"></a>
     <strong>ExecuteInTransaction ([name][, txn], func, ...)</strong>
     </dt>
@@ -341,6 +251,189 @@
         <li><pre class="example">sentry.ExecuteInTransaction(<span class="string">"My Thing"</span>, mything)</pre></li>
         <li><pre class="example">sentry.ExecuteInTransaction({ tags = { mything = <span class="string">"awesome"</span>} }, mything)</pre></li>
     </ul>
+
+</dd>
+    <dt>
+    <a name = "Setup"></a>
+    <strong>Setup (dsn[, extra])</strong>
+    </dt>
+    <dd>
+    Configures and activates Sentry
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dsn</span>
+         The DSN sentry gave you when you set up your project
+        </li>
+        <li><span class="parameter">extra</span>
+         Additional config values to store in sentry. Valid keys <code>tags</code>, <code>release</code>, <code>environment</code>, <code>server_name</code>, <code>no_detour</code>
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.Setup(<span class="string">"https://key@sentry.io/1337"</span>, {server_name=<span class="string">"server 7"</span>, release=<span class="string">"v23"</span>, environment=<span class="string">"production"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="util"></a>util</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "ISODate"></a>
+    <strong>ISODate (time)</strong>
+    </dt>
+    <dd>
+    Generates an ISO 8601/RFC 6350 formatted date
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+         The unix timestamp to generate the date from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        The date string
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "GetOSName"></a>
+    <strong>GetOSName ()</strong>
+    </dt>
+    <dd>
+    Generates a pretty printed name of the current operating sytem
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+        "Windows", "macOS", "Linux" or nil.
+    </ol>
+
+
+
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Module_Detection"></a>Module Detection</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "DetectedModules"></a>
+    <strong>DetectedModules</strong>
+    </dt>
+    <dd>
+    All the modules Sentry has detected.
+ Anything added to this will also be sent to Sentry
+
+
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.DetectedModules[<span class="string">"foo"</span>] = <span class="string">"7.2"</span></pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "DetectionFuncs"></a>
+    <strong>DetectionFuncs</strong>
+    </dt>
+    <dd>
+    More complex ways of detecting a module's version
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">_</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.DetectionFuncs[<span class="string">"global name"</span>] = <span class="keyword">function</span>(global_value) <span class="keyword">return</span> <span class="string">"version"</span>, <span class="string">"optional override name"</span> <span class="keyword">end</span></pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Transactions"></a>Transactions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "IsInTransaction"></a>
+    <strong>IsInTransaction ()</strong>
+    </dt>
+    <dd>
+    Checks if Sentry thinks a transaction is active
+ Ideally true, but could be false if an undetoured entrypoint is used
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+        true or false
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ExecuteTransaction"></a>
+    <strong>ExecuteTransaction (name, txn, func, ...)</strong>
+    </dt>
+    <dd>
+    [INTERNAL] Executes a function in transaction context
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+         The name of the transaction or nil if not applicable
+        </li>
+        <li><span class="parameter">txn</span>
+         The data to attach to the transaction
+        </li>
+        <li><span class="parameter">func</span>
+         The function to execute
+        </li>
+        <li><span class="parameter">...</span>
+         Arguments to pass to the function
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        Whatever func returns
+    </ol>
+
+
+
 
 </dd>
     <dt>
@@ -460,83 +553,6 @@
     </ul>
 
 </dd>
-    <dt>
-    <a name = "Setup"></a>
-    <strong>Setup (dsn[, extra])</strong>
-    </dt>
-    <dd>
-    Configures and activates Sentry
-
-
-    <h3>Parameters:</h3>
-    <ul>
-        <li><span class="parameter">dsn</span>
-         The DSN sentry gave you when you set up your project
-        </li>
-        <li><span class="parameter">extra</span>
-         Additional config values to store in sentry. Valid keys <code>tags</code>, <code>release</code>, <code>environment</code>, <code>server_name</code>, <code>no_detour</code>
-         (<em>optional</em>)
-        </li>
-    </ul>
-
-
-
-
-    <h3>Usage:</h3>
-    <ul>
-        <pre class="example">sentry.Setup(<span class="string">"https://key@sentry.io/1337"</span>, {server_name=<span class="string">"server 7"</span>, release=<span class="string">"v23"</span>, environment=<span class="string">"production"</span>})</pre>
-    </ul>
-
-</dd>
-</dl>
-    <h2 class="section-header "><a name="Tables"></a>Tables</h2>
-
-    <dl class="function">
-    <dt>
-    <a name = "DetectedModules"></a>
-    <strong>DetectedModules</strong>
-    </dt>
-    <dd>
-    All the modules Sentry has detected.
- Anything added to this will also be sent to Sentry
-
-
-
-
-
-
-    <h3>Usage:</h3>
-    <ul>
-        <pre class="example">sentry.DetectedModules[<span class="string">"foo"</span>] = <span class="string">"7.2"</span></pre>
-    </ul>
-
-</dd>
-    <dt>
-    <a name = "DetectionFuncs"></a>
-    <strong>DetectionFuncs</strong>
-    </dt>
-    <dd>
-    More complex ways of detecting a module's version
-
-
-    <h3>Fields:</h3>
-    <ul>
-        <li><span class="parameter">_</span>
-
-
-
-        </li>
-    </ul>
-
-
-
-
-    <h3>Usage:</h3>
-    <ul>
-        <pre class="example">sentry.DetectionFuncs[<span class="string">"global name"</span>] = <span class="keyword">function</span>(global_value) <span class="keyword">return</span> <span class="string">"version"</span>, <span class="string">"optional override name"</span> <span class="keyword">end</span></pre>
-    </ul>
-
-</dd>
 </dl>
 
 
@@ -544,7 +560,7 @@
 </div> <!-- id="main" -->
 <div id="about">
 <i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
-<i style="float:right;">Last updated 2018-08-19 20:01:26 </i>
+<i style="float:right;">Last updated 2018-08-19 20:14:22 </i>
 </div> <!-- id="about" -->
 </div> <!-- id="container" -->
 </body>
