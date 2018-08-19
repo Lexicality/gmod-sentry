@@ -661,7 +661,7 @@ function SkipNext(msg)
 	skipNext = msg;
 end
 
-function ExecuteInTransactionSANE(name, txn, func, ...)
+function ExecuteTransaction(name, txn, func, ...)
 	if (name) then
 		txn["culprit"] = name;
 	end
@@ -693,23 +693,22 @@ function ExecuteInTransactionSANE(name, txn, func, ...)
 	return unpack(res);
 end
 
-function ExecuteInTransaction(func, ...)
+function ExecuteInTransaction(...)
 	-- vulgar hellcode
-	local name;
-	local txn = {};
-	local args = { ... }
+	local a, b = ...;
+	a, b = type(a), type(b)
 
-	if (type(func) == "string") then
-		name = func;
-		func = table.remove(args, 1);
+	if (a == "string" or a == "nil") then
+		if (b == "table") then
+			return ExecuteTransaction(...)
+		else
+			return ExecuteTransaction(..., {}, select(2, ...))
+		end
+	elseif (a == "table") then
+		return ExecuteTransaction(nil, ...)
+	else
+		return ExecuteTransaction(nil, {}, ...);
 	end
-
-	if (type(func) == "table") then
-		txn = func;
-		func = table.remove(args, 1);
-	end
-
-	return ExecuteInTransactionSANE(name, txn, func, unpack(args));
 end
 
 function MergeContext(data)
@@ -842,7 +841,7 @@ end
 
 local function concommandRun(detour, ply, command, ...)
 	local cmd = command:lower();
-	ExecuteInTransactionSANE(
+	ExecuteTransaction(
 		"cmd/" .. cmd,
 		{
 			tags = {
@@ -886,7 +885,7 @@ local function netIncoming(detour, len, ply)
 	-- len includes the 16 bit int which told us the message name
 	len = len - 16
 
-	ExecuteInTransactionSANE(
+	ExecuteTransaction(
 		"net/" .. name,
 		{
 			user = ply,
@@ -915,14 +914,14 @@ local function actualHookCall(name, gm, ...)
 		local a, b, c, d, e, f;
 		for hookname, func in pairs(hooks) do
 			if (isstring(hookname)) then
-				a, b, c, d, e, f = ExecuteInTransactionSANE(
+				a, b, c, d, e, f = ExecuteTransaction(
 					string.format(HOOK_TXN_FORMAT, name, hookname),
 					ctx,
 					func,
 					...
 				);
 			elseif (IsValid(hookname)) then
-				a, b, c, d, e, f = ExecuteInTransactionSANE(
+				a, b, c, d, e, f = ExecuteTransaction(
 					-- This won't be a great name, but it's the best we can do
 					string.format(HOOK_TXN_FORMAT, name, tostring(hookname)),
 					ctx,
@@ -941,7 +940,7 @@ local function actualHookCall(name, gm, ...)
 	end
 
 	if (gm and gm[name]) then
-		return ExecuteInTransactionSANE(
+		return ExecuteTransaction(
 			string.format(HOOK_TXN_FORMAT, "GM", name),
 			ctx,
 			gm[name],
@@ -969,14 +968,14 @@ local function ulxHookCall(name, gm, ...)
 			for hookname, t in pairs(hooks[i]) do
 				func = t.fn;
 				if (t.isstring) then
-					a, b, c, d, e, f = ExecuteInTransactionSANE(
+					a, b, c, d, e, f = ExecuteTransaction(
 						string.format(HOOK_TXN_FORMAT, name, hookname),
 						ctx,
 						func,
 						...
 					);
 				elseif (IsValid(hookname)) then
-					a, b, c, d, e, f = ExecuteInTransactionSANE(
+					a, b, c, d, e, f = ExecuteTransaction(
 						-- This won't be a great name, but it's the best we can do
 						string.format(HOOK_TXN_FORMAT, name, tostring(hookname)),
 						ctx,
@@ -996,7 +995,7 @@ local function ulxHookCall(name, gm, ...)
 	end
 
 	if (gm and gm[name]) then
-		return ExecuteInTransactionSANE(
+		return ExecuteTransaction(
 			string.format(HOOK_TXN_FORMAT, "GM", name),
 			ctx,
 			gm[name],
@@ -1007,7 +1006,7 @@ local function ulxHookCall(name, gm, ...)
 end
 
 local function hookCall(detour, name, ...)
-	return ExecuteInTransactionSANE(nil, {
+	return ExecuteTransaction(nil, {
 		tags = {
 			hook = name,
 		},
