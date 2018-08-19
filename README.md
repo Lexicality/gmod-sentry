@@ -21,7 +21,7 @@ Track errors as they happen on your server, find out which workshop addon is mak
 
 ## Customisation
 ### sentry.Setup()
-You can pass a number of fields to [`sentry.Setup`](https://lexicality.github.io/sentry#Setup):
+You can pass a number of fields to [`sentry.Setup`](https://lexicality.github.io/gmod-sentry#Setup):
 - `server_name`: Tags your server in the sentry UI. If you have more than one server, this is useful for filtering between them. If you don't set it, your server's public hostname will be used.
 - `environment`: Used for setting up [Environments][sentry_env] on sentry. Not very useful if you don't run a testing server.
 - `release`: Used by the [Releases][sentry_rel] feature in Sentry.
@@ -45,7 +45,7 @@ sentry.Setup(
 ### Transactions
 By default this module will detour a number of Lua entry points to attempt to instrument as many things with useful transaction names as possible.
 
-This means your errors will be tagged with things such as `hook/PlayerInitialSpawn/DarkRP_DoorData` or `net/GModSave`, but you may wish to use your own names for functions. You can use [`sentry.ExecuteInTransaction`](https://lexicality.github.io/sentry#ExecuteInTransaction) to do this.
+This means your errors will be tagged with things such as `hook/PlayerInitialSpawn/DarkRP_DoorData` or `net/GModSave`, but you may wish to use your own names for functions. You can use [`sentry.ExecuteInTransaction`](https://lexicality.github.io/gmod-sentry#ExecuteInTransaction) to do this.
 
 #### Example:
 ```lua
@@ -58,7 +58,7 @@ end)
 ```
 
 ## Documentation
-A generated [LDoc][ldoc] file is available at [https://lexicality.github.io/sentry](https://lexicality.github.io/sentry)
+A generated [LDoc][ldoc] file is available at [https://lexicality.github.io/gmod-sentry](https://lexicality.github.io/gmod-sentry)
 
 
 [luaerror]: https://github.com/danielga/gm_luaerror/
