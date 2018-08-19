@@ -35,3 +35,8 @@ function drspangles()
 	sentry.pcall(level5)
 end
 
+hook.Add("One", "aoeu", function() error("Oops") end);
+hook.Add("Two", "ueoa", function() hook.Run("One") end)
+hook.Add("Three", "spang", function() hook.Run("Two") end)
+hook.Add("Four", "flang", function() hook.Run("Three") end)
+concommand.Add("hookception", function() hook.Run("Four") end)

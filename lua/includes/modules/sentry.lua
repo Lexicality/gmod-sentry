@@ -661,25 +661,30 @@ function SkipNext(msg)
 	skipNext = msg;
 end
 
-DISABLE_TXN_PCALL = "no pcall only txn";
 function ExecuteInTransactionSANE(name, txn, func, ...)
 	if (name) then
 		txn["culprit"] = name;
 	end
 
+	local noXPCall = IsInTransaction()
+
 	local id = pushTransaction(txn);
 	local res;
-	-- Danger zone!
-	if (txn[DISABLE_TXN_PCALL]) then
+
+	-- If we're already inside a transaction, we don't need to xpcall because the
+	-- error will bubble all the way up to the root txn
+	if (noXPCall) then
 		res = { true, func(...) };
 	else
 		res = { xpcall(func, xpcallCB, ...) };
 	end
+
 	popTransaction(id);
 
 	local success = table.remove(res, 1);
 	if (not success) then
 		local err = res[1];
+		print("???", err)
 		SkipNext(err);
 		-- Boom
 		error(err, 0);
@@ -902,7 +907,6 @@ local function actualHookCall(name, gm, ...)
 	end
 
 	local ctx = {
-		[DISABLE_TXN_PCALL] = true,
 		user = ply,
 	}
 
@@ -955,7 +959,6 @@ local function ulxHookCall(name, gm, ...)
 	end
 
 	local ctx = {
-		[DISABLE_TXN_PCALL] = true,
 		user = ply,
 	}
 
