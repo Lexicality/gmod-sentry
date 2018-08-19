@@ -10,12 +10,12 @@ Track errors as they happen on your server, find out which workshop addon is mak
 ## Setup
 1. [Download][luaerror_dl] and install the correct version of luaerror from your server (eg gmsv_luaerror_linux.dll)
 2. Set up a project in Sentry
-3. Find the "Deprecated" or "Legacy" DSN (TODO: Use the non deprecated one)
+3. [Find your DSN][sentry_dsn]
 4. Upload sentry.lua to `lua/includes/modules` on the server
 5. Create `lua/autorun/server/sentry.lua` on the server with the contents
    ```lua
    require( "sentry" )
-   sentry.Setup( "YOUR LEGACY DSN HERE", { server_name = "SHORT NAME FOR SERVER" } )
+   sentry.Setup( "YOUR DSN HERE", { server_name = "SHORT NAME FOR SERVER" } )
    ```
 6. Start collecting errors!
 
@@ -31,7 +31,7 @@ You can pass a number of fields to [`sentry.Setup`](https://lexicality.github.io
 #### Example:
 ```lua
 sentry.Setup(
-	"https://secret:key@sentry.io/1337",
+	"https://key@sentry.io/1337",
 	{
 		server_name = "server 7",
 		environment = "production",
@@ -67,5 +67,5 @@ A generated [LDoc][ldoc] file is available at [https://lexicality.github.io/gmod
 [sentry_env]: https://docs.sentry.io/learn/environments/
 [sentry_rel]: https://docs.sentry.io/learn/releases/
 [custom_sentry]: https://docs.sentry.io/server/installation/
-[quickstart]: https://docs.sentry.io/quickstart/
+[sentry_dsn]: https://docs.sentry.io/quickstart/#about-the-dsn
 [ldoc]: https://stevedonovan.github.io/ldoc/

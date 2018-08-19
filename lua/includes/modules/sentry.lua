@@ -647,20 +647,24 @@ local SENTRY_HEADER_FORMAT = (
 	"Sentry sentry_version=7, " ..
 	"sentry_client=%s/%s, " ..
 	"sentry_timestamp=%d, " ..
-	"sentry_key=%s, " ..
-	"sentry_secret=%s"
+	"sentry_key=%s"
 );
 ---
 -- Build the sentry security header
 -- @return A string to go in the X-Sentry-Auth header
 local function sentryAuthHeader()
-	return SENTRY_HEADER_FORMAT:format(
+	local header = SENTRY_HEADER_FORMAT:format(
 		SDK_VALUE.name,
 		SDK_VALUE.version,
 		os.time(),
 		config.publickey,
 		config.privatekey
 	)
+	-- Sentry <9 needs a secret key
+	if (config.privatekey) then
+		header = header .. (", sentry_secret=%s"):format(config.privatekey);
+	end
+	return header
 end
 
 ---
@@ -1307,14 +1311,17 @@ end
 --
 -- Initial Configuration
 --
-local DSN_FORMAT = "^(https?://)(%w+):(%w+)@([%w.:]+)/(%w+)$";
+local DSN_FORMAT = "^(https?://)(%w+):?(%w-)@([%w.:]+)/(%w+)$";
 ---
 -- Validates a sentry DSN and stores it in the config
 -- @param dsn The passed string
 local function parseDSN(dsn)
 	local scheme, publickey, privatekey, host, project = string.match(dsn, DSN_FORMAT);
-	if (not (scheme and publickey and privatekey and host and project)) then
+	if (not (scheme and publickey and host and project)) then
 		error("Malformed DSN!")
+	end
+	if (privatekey == "") then
+		privatekey = nil;
 	end
 	config.privatekey = privatekey;
 	config.publickey = publickey;
@@ -1325,7 +1332,7 @@ end
 local settables = { "tags", "release", "environment", "server_name", "no_detour" }
 ---
 -- Configures and activates Sentry
--- @usage sentry.Setup("https://secret:key@sentry.io/1337", {server_name="server 7", release="v23", environment="production"})
+-- @usage sentry.Setup("https://key@sentry.io/1337", {server_name="server 7", release="v23", environment="production"})
 -- @param dsn The DSN sentry gave you when you set up your project
 -- @param[opt] extra Additional config values to store in sentry. Valid keys `tags`, `release`, `environment`, `server_name`, `no_detour`
 function Setup(dsn, extra)
