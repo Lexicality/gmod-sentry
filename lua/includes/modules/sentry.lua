@@ -858,7 +858,6 @@ function ExecuteTransaction(name, txn, func, ...)
 	local success = table.remove(res, 1);
 	if (not success) then
 		local err = res[1];
-		print("???", err)
 		SkipNext(err);
 		-- Boom
 		error(err, 0);
