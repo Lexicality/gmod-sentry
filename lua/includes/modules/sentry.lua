@@ -1,3 +1,26 @@
+--[[
+	Garry's Mod Sentry Integration
+    Copyright 2018 Lex Robinson
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+        http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+--]]
+
+---
+-- Provides an interface to [Sentry](https://sentry.io) from GLua
+-- @module sentry
+-- @author Lex Robinson
+-- @copyright 2018 Lex Robinson
+
 require("luaerror");
 if (not luaerror) then
 	error("Please make sure you've installed gm_luaerror correctly")
@@ -34,7 +57,6 @@ local print = print;
 local PrintTable = PrintTable;
 
 local g = _G;
-
 module("sentry");
 
 --
@@ -67,8 +89,12 @@ VersionNum = string.format("%02d%02d%02d", string.match(SDK_VALUE.version, "(%d+
 --
 --    Utility Functions
 --
+
+--
+-- Generates a v4 UUID without dashes
+-- Copied from wirelib almost verbatim
+-- @return a UUID in hexadecimal string format.
 function UUID4()
-	-- Copied from wirelib almost verbatim
 	-- It would be easier to generate this by word rather than by byte, but
 	-- MSVC's RAND_MAX = 0x7FFF, which means math.random(0, 0xFFFF) won't
 	-- return all possible values.
@@ -79,10 +105,17 @@ function UUID4()
 	return string.format("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", unpack(bytes))
 end
 
+---
+-- Generates an ISO 8601/RFC 6350 formatted date
+-- @param time The unix timestamp to generate the date from
+-- @return The date string
 function ISODate(time)
 	return os.date("!%Y-%m-%dT%H:%M:%S", time);
 end
 
+---
+-- Generates a pretty printed name of the current operating sytem
+-- @return "Windows", "macOS", "Linux" or nil.
 function GetOSName()
 	if (system.IsWindows()) then
 		return "Windows";
@@ -94,7 +127,11 @@ function GetOSName()
 	return nil;
 end
 
-function WriteLog(message, ...)
+---
+-- Writes a logline to the Server log, using string.format
+-- @param message Logline to write
+-- @param ... Values to format into it
+local function WriteLog(message, ...)
 	ServerLog(string.format("Sentry: %s\n", message:format(...)));
 end
 
@@ -102,7 +139,17 @@ end
 --
 --    Module Detection
 --
+
+---
+-- All the modules Sentry has detected.
+-- Anything added to this will also be sent to Sentry
+-- @usage sentry.DetectedModules["foo"] = "7.2"
 DetectedModules = {};
+
+---
+-- More complex ways of detecting a module's version
+-- @field _
+-- @usage sentry.DetectionFuncs["global name"] = function(global_value) return "version", "optional override name" end
 DetectionFuncs = {
 	mysqloo = function(mysqloo)
 		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION or 0);
@@ -140,6 +187,8 @@ DetectionFuncs = {
 DetectionFuncs["GAMEMODE"] = DetectionFuncs["GM"];
 
 local LUAJIT_VERSION = "(.+) (%d+%.%d+%.%d+)";
+---
+-- Loops through _G and tries to find anything with some variant of a VERSION field.
 local function detectModules()
 	local VERSION = g["VERSION"];
 
@@ -177,6 +226,10 @@ end
 --
 local retryAfter = nil;
 local skipNext = nil;
+---
+-- Checks if an error should be reported to sentry
+-- @param err The FULL error message including embedded where line
+-- @return true to report, false to discard
 local function shouldReport(err)
 	if (not config.endpoint) then
 		return false;
@@ -198,6 +251,9 @@ local function shouldReport(err)
 	return true;
 end
 
+---
+-- Disables sending messages to sentry for a period
+-- @param backoff how many seconds to wait
 local function doBackoff(backoff)
 	local expires = SysTime() + backoff;
 	if (retryAfter == nil or retryAfter < expires) then
@@ -206,6 +262,11 @@ local function doBackoff(backoff)
 	end
 end
 
+---
+-- Detects if the server is telling us to back off and by how much
+-- @param code HTTP status code in number form
+-- @param headers Table of HTTP response headers
+-- @return true if the server is unhappy with us
 local function detectRateLimiting(code, headers)
 	local backoff = tonumber(headers["Retry-After"]);
 	-- Shouldn't happen, but might
@@ -230,6 +291,10 @@ local ADDON_FILE_PATTERN = "^@addons/([^/]+)/lua/(.*).lua$"
 local GAMEMODE_FILE_PATTERN = "^@gamemodes/([^/]+)/(.*).lua$"
 local ADDON_GAMEMODE_FILE_PATTERN = "^@addons/[^/]+/gamemodes/([^/]+)/(.*).lua$"
 local OTHER_FILE_PATTERN = "^@lua/(.*).lua$"
+---
+-- Generates a "module" name from a lua path
+-- @param path A full stacktrace lua path like "@addons/foo/lua/bar/baz.lua"
+-- @return A pretty name like "foo.bar.baz" or "unknown" if the path makes no sense
 local function modulify(path)
 	if (path == "=[C]") then
 		return "engine";
@@ -275,6 +340,11 @@ end
 --
 --    Stack Reverse Engineering
 --
+
+---
+-- Turns a lua stacktrace into a Sentry stacktrace
+-- @param stack Lua stacktrace in debug.getinfo style
+-- @return A reversed stacktrace with different field names
 local function sentrifyStack(stack)
 	-- Sentry likes stacks in the oposite order to lua
 	stack = table.Reverse(stack);
@@ -300,6 +370,9 @@ local function sentrifyStack(stack)
 	return { frames = ret };
 end
 
+---
+-- Extract the current stacktrace
+-- @return A Lua stacktrace
 local function getStack()
 	local level = 3; -- 1 = this, 2 = CaptureException
 
@@ -318,6 +391,12 @@ local function getStack()
 	return stack;
 end
 
+---
+-- Removes file info from lua errors by matching it with the stacktrace
+-- If the file does not occur in the stacktrace, it does not strip it.
+-- @param err an error like "lua/foo.lua:5: oops"
+-- @param stack The error's stacktrace
+-- @return Hopefully a nice error like "oops" or the full error if not
 local function stripFileData(err, stack)
 	local match, file, line = string.match(err, "^((.+):(%d+): ).+$");
 	if (not match) then
@@ -336,6 +415,10 @@ end
 
 local ADDON_BLAME_PATTERN = "^addons/([^/]+)/";
 local GAMEMODE_BLAME_PATTERN = "^gamemodes/([^/]+)/";
+---
+-- Creates tags from the stack trace to help point the finger at the error's source
+-- @param stack The full Lua stacktrace
+-- @return An array of tags in sentry format
 local function calculateBlame(stack)
 	for _, frame in pairs(stack) do
 		if (frame["source"] ~= "=[C]") then
@@ -373,10 +456,18 @@ end
 --    Transaction Management
 --
 local transactionStack = {}
+---
+-- Checks if Sentry thinks a transaction is active
+-- Ideally true, but could be false if an undetoured entrypoint is used
+-- @return true or false
 function IsInTransaction()
 	return #transactionStack > 0;
 end
 
+---
+-- Adds a transaction to the stack
+-- @param data The transaction's state
+-- @return The transaction's ID for popping
 local function pushTransaction(data)
 	local txn = {
 		data = data,
@@ -389,6 +480,11 @@ local function pushTransaction(data)
 	return txn.id;
 end
 
+---
+-- Pops a transaction from the stack
+-- If the transaction is not at the head of the stack, pops everything above it too.
+-- @param id The transaction's ID
+-- @return The transaction's state
 local function popTransaction(id)
 	for i, txn in pairs(transactionStack) do
 		if (txn.id == id) then
@@ -414,6 +510,10 @@ local function popTransaction(id)
 	error("Unknown Transaction '".. tostring(id) .. "'!");
 end
 
+---
+-- Merges all active transactions oldest to newest to get a composite block of data
+-- Also merges any context overrides from each transaction at the time
+-- @return A nice block of transaction context, or empty table if no transactions are active
 local function getTransactionData()
 	local res = {}
 
@@ -425,6 +525,9 @@ local function getTransactionData()
 	return res;
 end
 
+---
+-- Gets the top transaction on the stack
+-- @return The full transaction meta object, or nil if there is no transaction active
 local function getCurrentTransaction()
 	return transactionStack[#transactionStack];
 end
@@ -433,6 +536,11 @@ end
 --
 --    Context Management
 --
+---
+-- Converts user context to player data
+-- Requires there to be a "user" field in extra and requires it to be a valid player object
+-- @param extra The fully merged frame context
+-- @return A sentry formatted userdata or nil
 local function getUserContext(extra)
 	local ply = extra["user"]
 	if (not IsValid(ply)) then
@@ -447,6 +555,10 @@ local function getUserContext(extra)
 	}
 end
 
+---
+-- Converts stack context into Sentry context objects
+-- @param extra The fully merged frame context
+-- @return A sentry formatted object to go into the "contexts" field
 local function getContexts(extra)
 	return {
 		os = {
@@ -463,6 +575,10 @@ local function getContexts(extra)
 	}
 end
 
+---
+-- Generate a set of sentry formatted tags from the inital setup & passed context
+-- @param extra The fully merged frame context
+-- @return A sentry formatted object to go into the "tags" field
 local function getTags(extra)
 	local tags = {};
 
@@ -470,7 +586,9 @@ local function getTags(extra)
 		table.insert(tags, {name, value});
 	end
 
-	-- These _suppliment_ rather than replace sdk tags
+	-- Sentry would like extra tag values to suppliment the SDK tags when you send
+	--  them, but will still only allow one of each tag to exist.
+	-- I'm not entirely sure why, but best to do what the server asks for.
 	if (extra["tags"]) then
 		for name, value in pairs(extra.tags) do
 			table.insert(tags, {name, value});
@@ -484,6 +602,13 @@ end
 --
 --    Payload
 --
+---
+-- Build a sentry JSON payload from an error
+-- This will merge in transaction data & SDK preset values
+-- @param err The normalised error string (no filepath included)
+-- @param stacktrace The Lua stacktrace for the error
+-- @param extra Any additional context for the error
+-- @return A full sentry object ready to be JSON'd and uplodaded
 local function buildPayload(err, stacktrace, extra)
 	local txn = getTransactionData();
 	table.Merge(txn, extra)
@@ -525,7 +650,10 @@ local SENTRY_HEADER_FORMAT = (
 	"sentry_key=%s, " ..
 	"sentry_secret=%s"
 );
-local function sentryAuthHeader(now)
+---
+-- Build the sentry security header
+-- @return A string to go in the X-Sentry-Auth header
+local function sentryAuthHeader()
 	return SENTRY_HEADER_FORMAT:format(
 		SDK_VALUE.name,
 		SDK_VALUE.version,
@@ -535,6 +663,10 @@ local function sentryAuthHeader(now)
 	)
 end
 
+---
+-- Asynchronously upload a payload to the Sentry servers.
+-- Returns immediately regardless of success.
+-- @param payload a Sentry formatted payload table
 local function SendToServer(payload)
 	HTTP({
 		url = config.endpoint,
@@ -581,6 +713,12 @@ end
 --
 --    Reporting Functions
 --
+---
+-- Process & upload a normalised error.
+-- @param err The normalised error string (no filepath included)
+-- @param stack The Lua stacktrace for the error
+-- @param extra Any additional context for the error
+-- @return The generated event ID
 local function proccessException(err, stack, extra)
 	if (not extra) then
 		extra = {};
@@ -593,6 +731,15 @@ local function proccessException(err, stack, extra)
 	return payload.event_id;
 end
 
+---
+-- The gm_luaerror hook at the heart of this module
+-- @param is_runtime If this error was a compile error or a runtime error. Largely irrelevent.
+-- @param rawErr The full error that gets printed in console.
+-- @param file The filename extracted from rawErr
+-- @param lineno The line number extracte from rawErr
+-- @param err The error string extracted from rawErr
+-- @param stack The captured stack trace for the error. May be empty
+-- @return Nothing or you'll break everything
 local function OnLuaError(is_runtime, rawErr, file, lineno, err, stack)
 	if (not shouldReport(rawErr)) then
 		return;
@@ -609,6 +756,12 @@ local function OnLuaError(is_runtime, rawErr, file, lineno, err, stack)
 	proccessException(err, stack);
 end
 
+---
+-- Captures an exception for sentry, using the current stack as the error's stack
+-- Most useful inside an xpcall handler
+-- @param err The raw Lua error that happened, with or without file details
+-- @param extra Any other information about the error to upload to Sentry with it
+-- @return The generated error's ID or nil if it was automatically discarded
 function CaptureException(err, extra)
 	if (not shouldReport(err)) then
 		return nil;
@@ -621,6 +774,10 @@ function CaptureException(err, extra)
 	return proccessException(err, stack, extra);
 end
 
+---
+-- The callback for xpcall to upload errors to sentry
+-- @param err Captured error
+-- @return err
 local function xpcallCB(err)
 	if (not shouldReport(err)) then
 		return err;
@@ -636,6 +793,13 @@ local function xpcallCB(err)
 	return err;
 end
 
+---
+-- Works like [normal pcall](https://www.lua.org/manual/5.1/manual.html#pdf-pcall)
+-- but uploads the error to Sentry as well as returning it
+-- @param[opt] extra Other info to send to the server if func errors
+-- @param func The function to pcall
+-- @param ... Arguments to pass to func
+-- @return Its first result is the status code (a boolean), which is true if the call succeeds without errors. In such case, pcall also returns all results from the call, after this first result. In case of any error, pcall returns false plus the error message.
 function pcall(func, ...)
 	local args = { ... };
 	local extra = {};
@@ -657,10 +821,20 @@ end
 --
 -- Transaction Management
 --
+---
+-- Skip the next message if it matches this message
+-- @param msg The full raw lua error including file/line info
 function SkipNext(msg)
 	skipNext = msg;
 end
 
+---
+-- [INTERNAL] Executes a function in transaction context
+-- @param name The name of the transaction or nil if not applicable
+-- @param txn The data to attach to the transaction
+-- @param func The function to execute
+-- @param ... Arguments to pass to the function
+-- @return Whatever func returns
 function ExecuteTransaction(name, txn, func, ...)
 	if (name) then
 		txn["culprit"] = name;
@@ -693,6 +867,18 @@ function ExecuteTransaction(name, txn, func, ...)
 	return unpack(res);
 end
 
+---
+-- Executes a function in transaction context.
+-- If the function throws an error, the error will be reported to sentry and then will be re-raised.
+-- If you don't want the error re-raised, use sentry.pcall
+-- Both name and txn are optional
+-- @usage sentry.ExecuteInTransaction("My Thing", mything)
+-- @usage sentry.ExecuteInTransaction({ tags = { mything = "awesome"} }, mything)
+-- @param[opt] name The name of the transaction or nil if not applicable
+-- @param[opt] txn The data to attach to the transaction
+-- @param func The function to execute
+-- @param ... Arguments to pass to the function
+-- @return Whatever func returns
 function ExecuteInTransaction(...)
 	-- vulgar hellcode
 	local a, b = ...;
@@ -711,6 +897,12 @@ function ExecuteInTransaction(...)
 	end
 end
 
+---
+-- Add data to the current transaction's context.
+-- Anything here will override the transaction's starting values
+-- Does nothing if no transaction is active
+-- @usage sentry.MergeContext({ culprit = "your mum" })
+-- @param data Data to add
 function MergeContext(data)
 	local txn = getCurrentTransaction();
 	-- This might be suprising behaviour, but I don't have any better ideas
@@ -721,6 +913,10 @@ function MergeContext(data)
 	table.Merge(txn.ctx, data);
 end
 
+---
+-- Remove any extra data from the current transaction.
+-- Does not affect the data the transaction was started with.
+-- Does nothing if no transaction is active
 function ClearContext()
 	local txn = getCurrentTransaction();
 	-- This might be suprising behaviour, but I don't have any better ideas
@@ -731,14 +927,30 @@ function ClearContext()
 	txn.ctx = {};
 end
 
+---
+-- Merge tags into the current transaction's context
+-- Does nothing if no transaction is active
+-- @usage sentry.TagsContext({ somecondition = "passed" })
+-- @param tags A table of tag names as keys, values as values
 function TagsContext(tags)
 	MergeContext({ tags = tags });
 end
 
+---
+-- Merge the extra field into the current transaction's context
+-- Does nothing if no transaction is active
+-- @usage sentry.ExtraContext({ numplayers = 23 })
+-- @param tags A table of arbitrary data to send to Sentry
 function ExtraContext(exta)
 	MergeContext({ extra = extra });
 end
 
+
+---
+-- Set the current player for this context
+-- Does nothing if no transaction is active
+-- @usage sentry.UserContext(ply)
+-- @param user A player object
 function UserContext(user)
 	MergeContext({ user = user });
 end
@@ -824,6 +1036,13 @@ function detourMT:Validate(module)
 	return self:_get_valid() ~= false;
 end
 
+---
+-- Replaces a function with a custom one.
+-- Does nothing if something else has already overriden the function.
+-- @param func The new function to use
+-- @param target The target to override (eg "hook.Call")
+-- @param expectedModule Where the target is supposed to be (eg "lua/includes/modules/hook.lua")
+-- @return The detour object if the target is acceptable, false if it's not.
 local function createDetour(func, target, expectedModule)
 	local detour = {
 		override = func,
@@ -1027,6 +1246,11 @@ local hookTypes = {
 		module = "addons/ulib/lua/ulib/shared/hook.lua",
 	},
 }
+---
+-- Work out how to detour hook.Call
+-- hook.Call is a popular override target, so a bit of custom logic is needed to
+--  succeed against things like ULib
+-- @return Detour object if successful, false otherwise
 local function detourHookCall()
 	for _, hook in pairs(hookTypes) do
 		local detour = createDetour(hookCall, "hook.Call", hook.module);
@@ -1052,6 +1276,9 @@ local toDetour = {
 	},
 }
 local ERR_PREDETOURED = "Cannot override function %q as it is already overidden! Maybe add it to no_detour?"
+---
+-- Detour every function that hasn't been disabled with config.no_detour
+-- Raises an error if a function can't be detoured
 local function doDetours()
 	local no_detour = {}
 	for _, funcname in ipairs(config["no_detour"]) do
@@ -1082,6 +1309,9 @@ end
 -- Initial Configuration
 --
 local DSN_FORMAT = "^(https?://)(%w+):(%w+)@([%w.:]+)/(%w+)$";
+---
+-- Validates a sentry DSN and stores it in the config
+-- @param dsn The passed string
 local function parseDSN(dsn)
 	local scheme, publickey, privatekey, host, project = string.match(dsn, DSN_FORMAT);
 	if (not (scheme and publickey and privatekey and host and project)) then
@@ -1094,6 +1324,11 @@ local function parseDSN(dsn)
 end
 
 local settables = { "tags", "release", "environment", "server_name", "no_detour" }
+---
+-- Configures and activates Sentry
+-- @usage sentry.Setup("https://secret:key@sentry.io/1337", {server_name="server 7", release="v23", environment="production"})
+-- @param dsn The DSN sentry gave you when you set up your project
+-- @param[opt] extra Additional config values to store in sentry. Valid keys `tags`, `release`, `environment`, `server_name`, `no_detour`
 function Setup(dsn, extra)
 	parseDSN(dsn)
 

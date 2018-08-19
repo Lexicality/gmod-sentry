@@ -1,0 +1,551 @@
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN"
+   "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html>
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8"/>
+<head>
+    <title>sentry.lua Reference</title>
+    <link rel="stylesheet" href="ldoc.css" type="text/css" />
+</head>
+<body>
+
+<div id="container">
+
+<div id="product">
+	<div id="product_logo"></div>
+	<div id="product_name"><big><b></b></big></div>
+	<div id="product_description"></div>
+</div> <!-- id="product" -->
+
+
+<div id="main">
+
+
+<!-- Menu -->
+
+<div id="navigation">
+<br/>
+<h1>GMod Sentry</h1>
+
+
+<h2>Contents</h2>
+<ul>
+<li><a href="#Functions">Functions</a></li>
+<li><a href="#Tables">Tables</a></li>
+</ul>
+
+
+<h2>Modules</h2>
+<ul class="nowrap">
+  <li><strong>sentry</strong></li>
+</ul>
+<h2>Topics</h2>
+<ul class="">
+  <li><a href="topics/readme.md.html">readme</a></li>
+</ul>
+
+</div>
+
+<div id="content">
+
+<h1>Module <code>sentry</code></h1>
+<p>Provides an interface to <a href="https://sentry.io">Sentry</a> from GLua</p>
+<p>
+
+</p>
+    <h3>Info:</h3>
+    <ul>
+        <li><strong>Copyright</strong>: 2018 Lex Robinson</li>
+        <li><strong>Author</strong>: Lex Robinson</li>
+    </ul>
+
+
+<h2><a href="#Functions">Functions</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#ISODate">ISODate (time)</a></td>
+	<td class="summary">Generates an ISO 8601/RFC 6350 formatted date</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#GetOSName">GetOSName ()</a></td>
+	<td class="summary">Generates a pretty printed name of the current operating sytem</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#IsInTransaction">IsInTransaction ()</a></td>
+	<td class="summary">Checks if Sentry thinks a transaction is active
+ Ideally true, but could be false if an undetoured entrypoint is used</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#CaptureException">CaptureException (err, extra)</a></td>
+	<td class="summary">Captures an exception for sentry, using the current stack as the error's stack
+ Most useful inside an xpcall handler</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#pcall">pcall ([extra], func, ...)</a></td>
+	<td class="summary">Works like <a href="https://www.lua.org/manual/5.1/manual.html#pdf-pcall">normal pcall</a>
+ but uploads the error to Sentry as well as returning it</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#ExecuteTransaction">ExecuteTransaction (name, txn, func, ...)</a></td>
+	<td class="summary">[INTERNAL] Executes a function in transaction context</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#ExecuteInTransaction">ExecuteInTransaction ([name][, txn], func, ...)</a></td>
+	<td class="summary">Executes a function in transaction context.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#MergeContext">MergeContext (data)</a></td>
+	<td class="summary">Add data to the current transaction's context.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#ClearContext">ClearContext ()</a></td>
+	<td class="summary">Remove any extra data from the current transaction.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#TagsContext">TagsContext (tags)</a></td>
+	<td class="summary">Merge tags into the current transaction's context
+ Does nothing if no transaction is active</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#ExtraContext">ExtraContext (tags)</a></td>
+	<td class="summary">Merge the extra field into the current transaction's context
+ Does nothing if no transaction is active</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#UserContext">UserContext (user)</a></td>
+	<td class="summary">Set the current player for this context
+ Does nothing if no transaction is active</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#Setup">Setup (dsn[, extra])</a></td>
+	<td class="summary">Configures and activates Sentry</td>
+	</tr>
+</table>
+<h2><a href="#Tables">Tables</a></h2>
+<table class="function_list">
+	<tr>
+	<td class="name" nowrap><a href="#DetectedModules">DetectedModules</a></td>
+	<td class="summary">All the modules Sentry has detected.</td>
+	</tr>
+	<tr>
+	<td class="name" nowrap><a href="#DetectionFuncs">DetectionFuncs</a></td>
+	<td class="summary">More complex ways of detecting a module's version</td>
+	</tr>
+</table>
+
+<br/>
+<br/>
+
+
+    <h2 class="section-header "><a name="Functions"></a>Functions</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "ISODate"></a>
+    <strong>ISODate (time)</strong>
+    </dt>
+    <dd>
+    Generates an ISO 8601/RFC 6350 formatted date
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">time</span>
+         The unix timestamp to generate the date from
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        The date string
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "GetOSName"></a>
+    <strong>GetOSName ()</strong>
+    </dt>
+    <dd>
+    Generates a pretty printed name of the current operating sytem
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+        "Windows", "macOS", "Linux" or nil.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "IsInTransaction"></a>
+    <strong>IsInTransaction ()</strong>
+    </dt>
+    <dd>
+    Checks if Sentry thinks a transaction is active
+ Ideally true, but could be false if an undetoured entrypoint is used
+
+
+
+    <h3>Returns:</h3>
+    <ol>
+
+        true or false
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "CaptureException"></a>
+    <strong>CaptureException (err, extra)</strong>
+    </dt>
+    <dd>
+    Captures an exception for sentry, using the current stack as the error's stack
+ Most useful inside an xpcall handler
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">err</span>
+         The raw Lua error that happened, with or without file details
+        </li>
+        <li><span class="parameter">extra</span>
+         Any other information about the error to upload to Sentry with it
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        The generated error's ID or nil if it was automatically discarded
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "pcall"></a>
+    <strong>pcall ([extra], func, ...)</strong>
+    </dt>
+    <dd>
+    Works like <a href="https://www.lua.org/manual/5.1/manual.html#pdf-pcall">normal pcall</a>
+ but uploads the error to Sentry as well as returning it
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">extra</span>
+         Other info to send to the server if func errors
+         (<em>optional</em>)
+        </li>
+        <li><span class="parameter">func</span>
+         The function to pcall
+        </li>
+        <li><span class="parameter">...</span>
+         Arguments to pass to func
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        Its first result is the status code (a boolean), which is true if the call succeeds without errors. In such case, pcall also returns all results from the call, after this first result. In case of any error, pcall returns false plus the error message.
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ExecuteTransaction"></a>
+    <strong>ExecuteTransaction (name, txn, func, ...)</strong>
+    </dt>
+    <dd>
+    [INTERNAL] Executes a function in transaction context
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+         The name of the transaction or nil if not applicable
+        </li>
+        <li><span class="parameter">txn</span>
+         The data to attach to the transaction
+        </li>
+        <li><span class="parameter">func</span>
+         The function to execute
+        </li>
+        <li><span class="parameter">...</span>
+         Arguments to pass to the function
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        Whatever func returns
+    </ol>
+
+
+
+
+</dd>
+    <dt>
+    <a name = "ExecuteInTransaction"></a>
+    <strong>ExecuteInTransaction ([name][, txn], func, ...)</strong>
+    </dt>
+    <dd>
+    Executes a function in transaction context.
+ If the function throws an error, the error will be reported to sentry and then will be re-raised.
+ If you don't want the error re-raised, use sentry.pcall
+ Both name and txn are optional
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">name</span>
+         The name of the transaction or nil if not applicable
+         (<em>optional</em>)
+        </li>
+        <li><span class="parameter">txn</span>
+         The data to attach to the transaction
+         (<em>optional</em>)
+        </li>
+        <li><span class="parameter">func</span>
+         The function to execute
+        </li>
+        <li><span class="parameter">...</span>
+         Arguments to pass to the function
+        </li>
+    </ul>
+
+    <h3>Returns:</h3>
+    <ol>
+
+        Whatever func returns
+    </ol>
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <li><pre class="example">sentry.ExecuteInTransaction(<span class="string">"My Thing"</span>, mything)</pre></li>
+        <li><pre class="example">sentry.ExecuteInTransaction({ tags = { mything = <span class="string">"awesome"</span>} }, mything)</pre></li>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "MergeContext"></a>
+    <strong>MergeContext (data)</strong>
+    </dt>
+    <dd>
+    Add data to the current transaction's context.
+ Anything here will override the transaction's starting values
+ Does nothing if no transaction is active
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">data</span>
+         Data to add
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.MergeContext({ culprit = <span class="string">"your mum"</span> })</pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "ClearContext"></a>
+    <strong>ClearContext ()</strong>
+    </dt>
+    <dd>
+    Remove any extra data from the current transaction.
+ Does not affect the data the transaction was started with.
+ Does nothing if no transaction is active
+
+
+
+
+
+
+
+</dd>
+    <dt>
+    <a name = "TagsContext"></a>
+    <strong>TagsContext (tags)</strong>
+    </dt>
+    <dd>
+    Merge tags into the current transaction's context
+ Does nothing if no transaction is active
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">tags</span>
+         A table of tag names as keys, values as values
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.TagsContext({ somecondition = <span class="string">"passed"</span> })</pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "ExtraContext"></a>
+    <strong>ExtraContext (tags)</strong>
+    </dt>
+    <dd>
+    Merge the extra field into the current transaction's context
+ Does nothing if no transaction is active
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">tags</span>
+         A table of arbitrary data to send to Sentry
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.ExtraContext({ numplayers = <span class="number">23</span> })</pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "UserContext"></a>
+    <strong>UserContext (user)</strong>
+    </dt>
+    <dd>
+    Set the current player for this context
+ Does nothing if no transaction is active
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">user</span>
+         A player object
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.UserContext(ply)</pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "Setup"></a>
+    <strong>Setup (dsn[, extra])</strong>
+    </dt>
+    <dd>
+    Configures and activates Sentry
+
+
+    <h3>Parameters:</h3>
+    <ul>
+        <li><span class="parameter">dsn</span>
+         The DSN sentry gave you when you set up your project
+        </li>
+        <li><span class="parameter">extra</span>
+         Additional config values to store in sentry. Valid keys <code>tags</code>, <code>release</code>, <code>environment</code>, <code>server_name</code>, <code>no_detour</code>
+         (<em>optional</em>)
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.Setup(<span class="string">"https://secret:key@sentry.io/1337"</span>, {server_name=<span class="string">"server 7"</span>, release=<span class="string">"v23"</span>, environment=<span class="string">"production"</span>})</pre>
+    </ul>
+
+</dd>
+</dl>
+    <h2 class="section-header "><a name="Tables"></a>Tables</h2>
+
+    <dl class="function">
+    <dt>
+    <a name = "DetectedModules"></a>
+    <strong>DetectedModules</strong>
+    </dt>
+    <dd>
+    All the modules Sentry has detected.
+ Anything added to this will also be sent to Sentry
+
+
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.DetectedModules[<span class="string">"foo"</span>] = <span class="string">"7.2"</span></pre>
+    </ul>
+
+</dd>
+    <dt>
+    <a name = "DetectionFuncs"></a>
+    <strong>DetectionFuncs</strong>
+    </dt>
+    <dd>
+    More complex ways of detecting a module's version
+
+
+    <h3>Fields:</h3>
+    <ul>
+        <li><span class="parameter">_</span>
+
+
+
+        </li>
+    </ul>
+
+
+
+
+    <h3>Usage:</h3>
+    <ul>
+        <pre class="example">sentry.DetectionFuncs[<span class="string">"global name"</span>] = <span class="keyword">function</span>(global_value) <span class="keyword">return</span> <span class="string">"version"</span>, <span class="string">"optional override name"</span> <span class="keyword">end</span></pre>
+    </ul>
+
+</dd>
+</dl>
+
+
+</div> <!-- id="content" -->
+</div> <!-- id="main" -->
+<div id="about">
+<i>generated by <a href="http://github.com/stevedonovan/LDoc">LDoc 1.4.6</a></i>
+<i style="float:right;">Last updated 2018-08-19 19:10:38 </i>
+</div> <!-- id="about" -->
+</div> <!-- id="container" -->
+</body>
+</html>
