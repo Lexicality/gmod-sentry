@@ -955,7 +955,7 @@ end
 -- @within Transactions
 -- @usage sentry.ExtraContext({ numplayers = 23 })
 -- @param tags A table of arbitrary data to send to Sentry
-function ExtraContext(exta)
+function ExtraContext(extra)
 	MergeContext({ extra = extra });
 end
 
