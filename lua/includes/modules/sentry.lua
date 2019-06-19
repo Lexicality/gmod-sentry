@@ -73,6 +73,8 @@ local config = {
 	environment = nil,
 	server_name = nil,
 	no_detour = {},
+	capture_locals = true,
+	capture_upvalues = false,
 }
 
 --
@@ -410,8 +412,12 @@ local function sentrifyStack(stack)
 	local ret = {}
 	for i, frame in ipairs(stack) do
 		local vars = {}
-		formatStackVariables(frame["upvalues"], vars)
-		formatStackVariables(frame["locals"], vars)
+		if config["capture_upvalues"] and frame["upvalues"] then
+			formatStackVariables(frame["upvalues"], vars)
+		end
+		if config["capture_locals"] and frame["locals"] then
+			formatStackVariables(frame["locals"], vars)
+		end
 
 		ret[i] = {
 			filename = frame["source"]:sub(2),
@@ -437,31 +443,31 @@ local function getStack()
 			break
 		end
 
-		local locals = {}
-		local upvalues = {}
+		if info.what == "Lua" then
+			if config["capture_locals"] then
+				local locals = {}
+				local i = 1
+				while true do
+					local name, value = debug.getlocal(level, i)
+					if not isstring(name) then break end
 
-		if (info.what == "Lua") then
-			-- Capture locals
-			local i = 1
-			while true do
-				local name, value = debug.getlocal(level, i)
-				if (not isstring(name)) then break end
-
-				if (#name > 0 and name[1] ~= "(") then -- Some locals are internal with names like "(*temporary)"
-					locals[name] = value == nil and NIL_REPLACEMENT or value
+					if #name > 0 and name[1] ~= "(" then -- Some locals are internal with names like "(*temporary)"
+						locals[name] = value == nil and NIL_REPLACEMENT or value
+					end
+					i = i + 1
 				end
-				i = i + 1
+				info.locals = locals
 			end
 
-			-- Capture upvalues
-			for j = 1, info.nups do
-				local name, value = debug.getupvalue(info.func, j)
-				upvalues[name] = value == nil and NIL_REPLACEMENT or value
+			if config["capture_upvalues"] then
+				local upvalues = {}
+				for j = 1, info.nups do
+					local name, value = debug.getupvalue(info.func, j)
+					upvalues[name] = value == nil and NIL_REPLACEMENT or value
+				end
+				info.upvalues = upvalues
 			end
 		end
-
-		info.locals = locals
-		info.upvalues = upvalues
 
 		stack[level - 2] = info
 
