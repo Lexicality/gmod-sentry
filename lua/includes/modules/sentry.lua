@@ -575,7 +575,7 @@ local function getContexts(extra)
 			version = g["VERSIONSTR"],
 		},
 		app = {
-			app_start_time = math.floor(os.time() - SysTime()),
+			app_start_time = ISODate(math.floor(os.time() - SysTime())),
 		},
 		user = getUserContext(extra),
 	}
