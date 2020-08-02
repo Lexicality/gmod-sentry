@@ -13,8 +13,7 @@
     WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
     See the License for the specific language governing permissions and
     limitations under the License.
---]]
-
+]] --
 ---
 -- Provides an interface to [Sentry](https://sentry.io) from GLua
 --
@@ -22,7 +21,6 @@
 -- @module sentry
 -- @author Lex Robinson
 -- @copyright 2018 Lex Robinson
-
 require("luaerror");
 if (not luaerror) then
 	error("Please make sure you've installed gm_luaerror correctly")
@@ -79,14 +77,12 @@ local config = {
 --
 --    Versioning
 --
-SDK_VALUE = {
-	name = "GMSentry",
-	version = "0.0.1",
-}
+SDK_VALUE = {name = "GMSentry", version = "0.0.1"}
 -- LuaJIT Style
 Version = string.format("%s %s", SDK_VALUE.name, SDK_VALUE.version);
-VersionNum = string.format("%02d%02d%02d", string.match(SDK_VALUE.version, "(%d+).(%d+).(%d+)"))
-
+VersionNum = string.format(
+	"%02d%02d%02d", string.match(SDK_VALUE.version, "(%d+).(%d+).(%d+)")
+)
 
 --
 --    Utility Functions
@@ -101,10 +97,15 @@ function UUID4()
 	-- MSVC's RAND_MAX = 0x7FFF, which means math.random(0, 0xFFFF) won't
 	-- return all possible values.
 	local bytes = {}
-	for i = 1, 16 do bytes[i] = math.random(0, 0xFF) end
+	for i = 1, 16 do
+		bytes[i] = math.random(0, 0xFF)
+	end
 	bytes[7] = bit.bor(0x40, bit.band(bytes[7], 0x0F))
 	bytes[9] = bit.bor(0x80, bit.band(bytes[7], 0x3F))
-	return string.format("%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x", unpack(bytes))
+	return string.format(
+		"%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x%02x",
+		unpack(bytes)
+	)
 end
 
 ---
@@ -140,7 +141,6 @@ local function WriteLog(message, ...)
 	ServerLog(string.format("Sentry: %s\n", message:format(...)));
 end
 
-
 --
 --    Module Detection
 --
@@ -158,7 +158,7 @@ DetectedModules = {};
 DetectionFuncs = {
 	mysqloo = function(mysqloo)
 		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION or 0);
-	end;
+	end,
 	CPPI = function(CPPI)
 		local name = CPPI:GetName();
 		local version = CPPI:GetVersion();
@@ -167,7 +167,7 @@ DetectionFuncs = {
 			return nil;
 		end
 		return version, name;
-	end;
+	end,
 	ulx = function(ulx)
 		-- Why is this better than ulx.version
 		local ULib = g["ULib"];
@@ -175,19 +175,19 @@ DetectionFuncs = {
 			return ULib.pluginVersionStr("ULX");
 		end
 		return ulx.version or ulx.VERSION;
-	end;
+	end,
 	ULib = function(ULib)
 		if (ULib.pluginVersionStr) then
 			return ULib.pluginVersionStr("ULib");
 		end
 		return ULib.version or ULib.VERSION;
-	end;
+	end,
 	GM = function(GM)
 		if (not GM.Version) then
 			return nil;
 		end
 		return GM.Version, string.format("Gamemode: %s", GM.Name);
-	end;
+	end,
 }
 DetectionFuncs["GAMEMODE"] = DetectionFuncs["GM"];
 
@@ -224,7 +224,6 @@ local function detectModules()
 		end
 	end
 end
-
 
 --
 --    Rate Limiting
@@ -288,7 +287,6 @@ local function detectRateLimiting(code, headers)
 	return true;
 end
 
-
 --
 --    File Identification
 --
@@ -331,7 +329,9 @@ local function modulify(path)
 	end
 
 	-- Asciify name
-	name = name:lower():gsub("[^%w]+", "-"):gsub("%-+", "-"):gsub("^%-*(.-)%-*$", "%1");
+	name = name:lower():gsub("[^%w]+", "-"):gsub("%-+", "-"):gsub(
+		"^%-*(.-)%-*$", "%1"
+	);
 	-- Lua doesn't do unicode, so if the workshop name is in cyrilic or something, it'll now be empty
 	if (name:len() < 3) then
 		-- Heck
@@ -340,7 +340,6 @@ local function modulify(path)
 
 	return name .. "." .. rest:gsub("/", ".")
 end
-
 
 --
 --    Stack Reverse Engineering
@@ -359,7 +358,7 @@ local function sentrifyStack(stack)
 		table.remove(stack);
 	end
 	-- If someone has called `error`, remove it from the stack trace
-	if (stack[#stack]["source"] == "=[C]" and stack[#stack]["name"] == "error" ) then
+	if (stack[#stack]["source"] == "=[C]" and stack[#stack]["name"] == "error") then
 		table.remove(stack);
 	end
 
@@ -372,7 +371,7 @@ local function sentrifyStack(stack)
 			lineno = frame["currentline"],
 		}
 	end
-	return { frames = ret };
+	return {frames = ret};
 end
 
 ---
@@ -385,7 +384,7 @@ local function getStack()
 	while true do
 		local info = debug.getinfo(level, "Sln");
 		if (not info) then
-			break;
+			break
 		end
 
 		stack[level - 2] = info;
@@ -409,9 +408,10 @@ local function stripFileData(err, stack)
 	end
 
 	for _, frame in pairs(stack) do
-		if (frame["source"] == "@" .. file and tostring(frame["currentline"]) == tostring(line)) then
+		if (frame["source"] == "@" .. file and tostring(frame["currentline"]) ==
+			tostring(line)) then
 			err = err:sub(#match + 1);
-			break;
+			break
 		end
 	end
 
@@ -431,31 +431,23 @@ local function calculateBlame(stack)
 
 			local wsname, wsid = luaerror.FindWorkshopAddonFileOwner(source);
 			if (wsname) then
-				return {
-					{ "addon", "workshop-" .. wsid },
-					{ "addon-name", wsname },
-				}
+				return {{"addon", "workshop-" .. wsid}, {"addon-name", wsname}}
 			end
 
 			local addon = string.match(source, ADDON_BLAME_PATTERN);
 			if (addon) then
-				return {
-					{ "addon", addon },
-				}
+				return {{"addon", addon}}
 			end
 
 			local gamemode = string.match(source, GAMEMODE_BLAME_PATTERN);
 			if (gamemode) then
-				return {
-					{ "gamemode", gamemode },
-				}
+				return {{"gamemode", gamemode}}
 			end
 		end
 	end
 
 	return {};
 end
-
 
 --
 --    Transaction Management
@@ -475,11 +467,7 @@ end
 -- @param data The transaction's state
 -- @return The transaction's ID for popping
 local function pushTransaction(data)
-	local txn = {
-		data = data,
-		ctx = {},
-		id = UUID4(),
-	}
+	local txn = {data = data, ctx = {}, id = UUID4()}
 
 	transactionStack[#transactionStack + 1] = txn;
 
@@ -513,7 +501,7 @@ local function popTransaction(id)
 		end
 	end
 
-	error("Unknown Transaction '".. tostring(id) .. "'!");
+	error("Unknown Transaction '" .. tostring(id) .. "'!");
 end
 
 ---
@@ -537,7 +525,6 @@ end
 local function getCurrentTransaction()
 	return transactionStack[#transactionStack];
 end
-
 
 --
 --    Context Management
@@ -567,16 +554,9 @@ end
 -- @return A sentry formatted object to go into the "contexts" field
 local function getContexts(extra)
 	return {
-		os = {
-			name = GetOSName(),
-		},
-		runtime = {
-			name = "Garry's Mod",
-			version = g["VERSIONSTR"],
-		},
-		app = {
-			app_start_time = ISODate(math.floor(os.time() - SysTime())),
-		},
+		os = {name = GetOSName()},
+		runtime = {name = "Garry's Mod", version = g["VERSIONSTR"]},
+		app = {app_start_time = ISODate(math.floor(os.time() - SysTime()))},
 		user = getUserContext(extra),
 	}
 end
@@ -604,7 +584,6 @@ local function getTags(extra)
 	return tags
 end
 
-
 --
 --    Payload
 --
@@ -628,11 +607,9 @@ local function buildPayload(err, stacktrace, extra)
 		logger = "sentry",
 		platform = "other",
 		sdk = SDK_VALUE,
-		exception = {{
-			type = "error",
-			value = err,
-			stacktrace = sentrifyStack(stacktrace),
-		}},
+		exception = {
+			{type = "error", value = err, stacktrace = sentrifyStack(stacktrace)},
+		},
 		modules = DetectedModules,
 		contexts = getContexts(txn),
 		tags = tags,
@@ -645,25 +622,18 @@ local function buildPayload(err, stacktrace, extra)
 	};
 end
 
-
 --
 --    Actual HTTP Integration
 --
-local SENTRY_HEADER_FORMAT = (
-	"Sentry sentry_version=7, " ..
-	"sentry_client=%s/%s, " ..
-	"sentry_timestamp=%d, " ..
-	"sentry_key=%s"
-);
+local SENTRY_HEADER_FORMAT = ("Sentry sentry_version=7, " ..
+                             	"sentry_client=%s/%s, " .. "sentry_timestamp=%d, " ..
+                             	"sentry_key=%s");
 ---
 -- Build the sentry security header
 -- @return A string to go in the X-Sentry-Auth header
 local function sentryAuthHeader()
 	local header = SENTRY_HEADER_FORMAT:format(
-		SDK_VALUE.name,
-		SDK_VALUE.version,
-		os.time(),
-		config.publickey,
+		SDK_VALUE.name, SDK_VALUE.version, os.time(), config.publickey,
 		config.privatekey
 	)
 	-- Sentry <9 needs a secret key
@@ -678,47 +648,46 @@ end
 -- Returns immediately regardless of success.
 -- @param payload a Sentry formatted payload table
 local function SendToServer(payload)
-	HTTP({
-		url = config.endpoint,
-		method = "POST",
-		body = util.TableToJSON(payload),
-		type = "application/json; charset=utf-8",
-		headers = {
-			["X-Sentry-Auth"] = sentryAuthHeader(),
-		},
-		success = function(code, body, headers)
-			local result = util.JSONToTable(body) or {};
+	HTTP(
+		{
+			url = config.endpoint,
+			method = "POST",
+			body = util.TableToJSON(payload),
+			type = "application/json; charset=utf-8",
+			headers = {["X-Sentry-Auth"] = sentryAuthHeader()},
+			success = function(code, body, headers)
+				local result = util.JSONToTable(body) or {};
 
-			if (detectRateLimiting(code, headers)) then
-				return;
-			elseif (code ~= 200) then
-				local error = headers["X-Sentry-Error"] or result["error"];
+				if (detectRateLimiting(code, headers)) then
+					return;
+				elseif (code ~= 200) then
+					local error = headers["X-Sentry-Error"] or result["error"];
 
-				if (code >= 500) then
-					WriteLog("Server is offline (%s), trying later", error or code);
-					doBackoff(2);
-					return
-				elseif (code == 401) then
-					WriteLog("Access denied - shutting down: %s", error or body);
-					-- If sentry tells us to go away, go away properly
-					config.endpoint = nil;
-					return;
-				else
-					WriteLog("Got HTTP %d from the server: %s", code, error or body)
-					return;
+					if (code >= 500) then
+						WriteLog("Server is offline (%s), trying later", error or code);
+						doBackoff(2);
+						return
+					elseif (code == 401) then
+						WriteLog("Access denied - shutting down: %s", error or body);
+						-- If sentry tells us to go away, go away properly
+						config.endpoint = nil;
+						return;
+					else
+						WriteLog("Got HTTP %d from the server: %s", code, error or body)
+						return;
+					end
 				end
-			end
 
-			-- Debugging
-			print("Success! Event stored with ID " .. (result["id"] or "?"))
-		end,
-		failed = function(reason)
-			-- This is effectively useless
-			WriteLog("HTTP request failed: %s", reason);
-		end,
-	})
+				-- Debugging
+				print("Success! Event stored with ID " .. (result["id"] or "?"))
+			end,
+			failed = function(reason)
+				-- This is effectively useless
+				WriteLog("HTTP request failed: %s", reason);
+			end,
+		}
+	)
 end
-
 
 --
 --    Reporting Functions
@@ -758,7 +727,7 @@ local function OnLuaError(is_runtime, rawErr, file, lineno, err, stack)
 	if (#stack == 0) then
 		stack[1] = {
 			name = is_runtime and "<unknown>" or "<compile>",
-			source = '@' .. file,
+			source = "@" .. file,
 			currentline = lineno,
 		}
 	end
@@ -811,7 +780,7 @@ end
 -- @param ... Arguments to pass to func
 -- @return Its first result is the status code (a boolean), which is true if the call succeeds without errors. In such case, pcall also returns all results from the call, after this first result. In case of any error, pcall returns false plus the error message.
 function pcall(func, ...)
-	local args = { ... };
+	local args = {...};
 	local extra = {};
 
 	-- If the first argument is a table, it's configuring the exception handler
@@ -821,12 +790,11 @@ function pcall(func, ...)
 	end
 
 	local id = pushTransaction(extra);
-	local res = { xpcall(func, xpcallCB, unpack(args)) };
+	local res = {xpcall(func, xpcallCB, unpack(args))};
 	popTransaction(id);
 
 	return unpack(res);
 end
-
 
 --
 -- Transaction Management
@@ -859,9 +827,9 @@ function ExecuteTransaction(name, txn, func, ...)
 	-- If we're already inside a transaction, we don't need to xpcall because the
 	-- error will bubble all the way up to the root txn
 	if (noXPCall) then
-		res = { true, func(...) };
+		res = {true, func(...)};
 	else
-		res = { xpcall(func, xpcallCB, ...) };
+		res = {xpcall(func, xpcallCB, ...)};
 	end
 
 	popTransaction(id);
@@ -946,7 +914,7 @@ end
 -- @usage sentry.TagsContext({ somecondition = "passed" })
 -- @param tags A table of tag names as keys, values as values
 function TagsContext(tags)
-	MergeContext({ tags = tags });
+	MergeContext({tags = tags});
 end
 
 ---
@@ -956,9 +924,8 @@ end
 -- @usage sentry.ExtraContext({ numplayers = 23 })
 -- @param tags A table of arbitrary data to send to Sentry
 function ExtraContext(extra)
-	MergeContext({ extra = extra });
+	MergeContext({extra = extra});
 end
-
 
 ---
 -- Set the current player for this context
@@ -967,9 +934,8 @@ end
 -- @usage sentry.UserContext(ply)
 -- @param user A player object
 function UserContext(user)
-	MergeContext({ user = user });
+	MergeContext({user = user});
 end
-
 
 --
 --    Detours
@@ -1040,7 +1006,11 @@ function detourMT:Detour()
 	self.original = func;
 	self:_set(self, "_DT");
 	-- Engine functions won't talk to magical tables with the __call metafield. :(
-	self:_set(function(...) return self(...) end);
+	self:_set(
+		function(...)
+			return self(...)
+		end
+	);
 end
 
 function detourMT:Reset()
@@ -1076,14 +1046,8 @@ end
 local function concommandRun(detour, ply, command, ...)
 	local cmd = command:lower();
 	ExecuteTransaction(
-		"cmd/" .. cmd,
-		{
-			tags = {
-				concommand = cmd,
-			},
-			user = ply,
-		},
-		detour.original, ply, command, ...
+		"cmd/" .. cmd, {tags = {concommand = cmd}, user = ply}, detour.original, ply,
+		command, ...
 	);
 end
 
@@ -1093,10 +1057,7 @@ local function netIncoming(detour, len, ply)
 	if (not name) then
 		CaptureException(
 			string.format("Unknown network message with ID %d", id),
-			{
-				user = ply,
-				culprit = "net/" .. tostring(id),
-			}
+			{user = ply, culprit = "net/" .. tostring(id)}
 		)
 		return;
 	end
@@ -1105,13 +1066,7 @@ local function netIncoming(detour, len, ply)
 	if (not func) then
 		CaptureException(
 			string.format("Unknown network message with name %s", name),
-			{
-				user = ply,
-				tags = {
-					net_message = name,
-				},
-				culprit = "net/" .. name,
-			}
+			{user = ply, tags = {net_message = name}, culprit = "net/" .. name}
 		)
 		return;
 	end
@@ -1120,14 +1075,7 @@ local function netIncoming(detour, len, ply)
 	len = len - 16
 
 	ExecuteTransaction(
-		"net/" .. name,
-		{
-			user = ply,
-			tags = {
-				net_message = name,
-			},
-		},
-		func, len, ply
+		"net/" .. name, {user = ply, tags = {net_message = name}}, func, len, ply
 	);
 end
 
@@ -1139,9 +1087,7 @@ local function actualHookCall(name, gm, ...)
 		ply = nil;
 	end
 
-	local ctx = {
-		user = ply,
-	}
+	local ctx = {user = ply}
 
 	local hooks = hook.GetTable()[name];
 	if (hooks) then
@@ -1149,19 +1095,13 @@ local function actualHookCall(name, gm, ...)
 		for hookname, func in pairs(hooks) do
 			if (isstring(hookname)) then
 				a, b, c, d, e, f = ExecuteTransaction(
-					string.format(HOOK_TXN_FORMAT, name, hookname),
-					ctx,
-					func,
-					...
+					string.format(HOOK_TXN_FORMAT, name, hookname), ctx, func, ...
 				);
 			elseif (IsValid(hookname)) then
+				-- This won't be a great name, but it's the best we can do
 				a, b, c, d, e, f = ExecuteTransaction(
-					-- This won't be a great name, but it's the best we can do
-					string.format(HOOK_TXN_FORMAT, name, tostring(hookname)),
-					ctx,
-					func,
-					hookname,
-					...
+					string.format(HOOK_TXN_FORMAT, name, tostring(hookname)), ctx, func,
+					hookname, ...
 				);
 			else
 				hooks[hookname] = nil;
@@ -1175,11 +1115,7 @@ local function actualHookCall(name, gm, ...)
 
 	if (gm and gm[name]) then
 		return ExecuteTransaction(
-			string.format(HOOK_TXN_FORMAT, "GM", name),
-			ctx,
-			gm[name],
-			gm,
-			...
+			string.format(HOOK_TXN_FORMAT, "GM", name), ctx, gm[name], gm, ...
 		);
 	end
 end
@@ -1191,9 +1127,7 @@ local function ulxHookCall(name, gm, ...)
 		ply = nil;
 	end
 
-	local ctx = {
-		user = ply,
-	}
+	local ctx = {user = ply}
 
 	local hooks = hook.GetULibTable()[name];
 	if (hooks) then
@@ -1203,19 +1137,13 @@ local function ulxHookCall(name, gm, ...)
 				func = t.fn;
 				if (t.isstring) then
 					a, b, c, d, e, f = ExecuteTransaction(
-						string.format(HOOK_TXN_FORMAT, name, hookname),
-						ctx,
-						func,
-						...
+						string.format(HOOK_TXN_FORMAT, name, hookname), ctx, func, ...
 					);
 				elseif (IsValid(hookname)) then
+					-- This won't be a great name, but it's the best we can do
 					a, b, c, d, e, f = ExecuteTransaction(
-						-- This won't be a great name, but it's the best we can do
-						string.format(HOOK_TXN_FORMAT, name, tostring(hookname)),
-						ctx,
-						func,
-						hookname,
-						...
+						string.format(HOOK_TXN_FORMAT, name, tostring(hookname)), ctx, func,
+						hookname, ...
 					);
 				else
 					hooks[i][hookname] = nil;
@@ -1230,36 +1158,19 @@ local function ulxHookCall(name, gm, ...)
 
 	if (gm and gm[name]) then
 		return ExecuteTransaction(
-			string.format(HOOK_TXN_FORMAT, "GM", name),
-			ctx,
-			gm[name],
-			gm,
-			...
+			string.format(HOOK_TXN_FORMAT, "GM", name), ctx, gm[name], gm, ...
 		);
 	end
 end
 
 local function hookCall(detour, name, ...)
-	return ExecuteTransaction(nil, {
-		tags = {
-			hook = name,
-		},
-	}, detour.func, name, ...)
+	return ExecuteTransaction(nil, {tags = {hook = name}}, detour.func, name, ...)
 end
 
 local hookTypes = {
-	{
-		override = actualHookCall,
-		module = "lua/includes/modules/hook.lua",
-	},
-	{
-		override = ulxHookCall,
-		module = "lua/ulib/shared/hook.lua",
-	},
-	{
-		override = ulxHookCall,
-		module = "addons/ulib/lua/ulib/shared/hook.lua",
-	},
+	{override = actualHookCall, module = "lua/includes/modules/hook.lua"},
+	{override = ulxHookCall, module = "lua/ulib/shared/hook.lua"},
+	{override = ulxHookCall, module = "addons/ulib/lua/ulib/shared/hook.lua"},
 }
 ---
 -- Work out how to detour hook.Call
@@ -1290,7 +1201,8 @@ local toDetour = {
 		module = "lua/includes/extensions/net.lua",
 	},
 }
-local ERR_PREDETOURED = "Cannot override function %q as it is already overidden! Maybe add it to no_detour?"
+local ERR_PREDETOURED =
+	"Cannot override function %q as it is already overidden! Maybe add it to no_detour?"
 ---
 -- Detour every function that hasn't been disabled with config.no_detour
 -- Raises an error if a function can't be detoured
@@ -1319,7 +1231,6 @@ local function doDetours()
 	end
 end
 
-
 --
 -- Initial Configuration
 --
@@ -1328,7 +1239,8 @@ local DSN_FORMAT = "^(https?://)(%w+):?(%w-)@([%w.:]+)/(%w+)$";
 -- Validates a sentry DSN and stores it in the config
 -- @param dsn The passed string
 local function parseDSN(dsn)
-	local scheme, publickey, privatekey, host, project = string.match(dsn, DSN_FORMAT);
+	local scheme, publickey, privatekey, host, project =
+		string.match(dsn, DSN_FORMAT);
 	if (not (scheme and publickey and host and project)) then
 		error("Malformed DSN!")
 	end
@@ -1341,7 +1253,7 @@ local function parseDSN(dsn)
 	config.endpoint = scheme .. host .. "/api/" .. project .. "/store/";
 end
 
-local settables = { "tags", "release", "environment", "server_name", "no_detour" }
+local settables = {"tags", "release", "environment", "server_name", "no_detour"}
 ---
 -- Configures and activates Sentry
 -- @usage sentry.Setup("https://key@sentry.io/1337", {server_name="server 7", release="v23", environment="production"})
