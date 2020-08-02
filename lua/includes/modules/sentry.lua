@@ -208,7 +208,8 @@ local function detectModules()
 			end
 		elseif type(value) == "table" and name ~= "sentry" then
 			-- Magic guessing game
-			local version = value["version"] or value["Version"] or value["VERSION"]
+			local version = rawget(value, "version") or rawget(value, "Version") or
+                				rawget(value, "VERSION")
 
 			if version and version ~= VERSION and type(version) ~= "function" then
 				version = tostring(version)

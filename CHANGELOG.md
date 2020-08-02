@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - Fix typo breaking `sentry.ExtraContext`
 - Fix incorrect date format for `app_start_time`
+- Use `rawget` to find the versions of global variables to avoid invoking metamethods
 
 ## [0.0.1] - 2018-08-19
 
