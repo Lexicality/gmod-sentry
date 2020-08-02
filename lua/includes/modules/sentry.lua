@@ -21,43 +21,43 @@
 -- @module sentry
 -- @author Lex Robinson
 -- @copyright 2018 Lex Robinson
-require("luaerror");
+require("luaerror")
 if (not luaerror) then
 	error("Please make sure you've installed gm_luaerror correctly")
 end
 
-local GetHostName = GetHostName;
-local HTTP = HTTP;
-local IsValid = IsValid;
-local ServerLog = ServerLog;
-local SysTime = SysTime;
-local bit = bit;
-local error = error;
-local hook = hook;
-local ipairs = ipairs;
-local isstring = isstring;
-local luaerror = luaerror;
-local math = math;
-local net = net;
-local os = os;
-local pairs = pairs;
-local setmetatable = setmetatable;
-local string = string;
-local system = system;
-local table = table;
-local tonumber = tonumber;
-local tostring = tostring;
-local type = type;
-local unpack = unpack;
-local util = util;
-local xpcall = xpcall;
+local GetHostName = GetHostName
+local HTTP = HTTP
+local IsValid = IsValid
+local ServerLog = ServerLog
+local SysTime = SysTime
+local bit = bit
+local error = error
+local hook = hook
+local ipairs = ipairs
+local isstring = isstring
+local luaerror = luaerror
+local math = math
+local net = net
+local os = os
+local pairs = pairs
+local setmetatable = setmetatable
+local string = string
+local system = system
+local table = table
+local tonumber = tonumber
+local tostring = tostring
+local type = type
+local unpack = unpack
+local util = util
+local xpcall = xpcall
 -- debugging
 local debug = debug
-local print = print;
-local PrintTable = PrintTable;
+local print = print
+local PrintTable = PrintTable
 
-local g = _G;
-module("sentry");
+local g = _G
+module("sentry")
 
 --
 --    Global Config
@@ -79,7 +79,7 @@ local config = {
 --
 SDK_VALUE = {name = "GMSentry", version = "0.0.1"}
 -- LuaJIT Style
-Version = string.format("%s %s", SDK_VALUE.name, SDK_VALUE.version);
+Version = string.format("%s %s", SDK_VALUE.name, SDK_VALUE.version)
 VersionNum = string.format(
 	"%02d%02d%02d", string.match(SDK_VALUE.version, "(%d+).(%d+).(%d+)")
 )
@@ -114,7 +114,7 @@ end
 -- @param time The unix timestamp to generate the date from
 -- @return The date string
 function ISODate(time)
-	return os.date("!%Y-%m-%dT%H:%M:%S", time);
+	return os.date("!%Y-%m-%dT%H:%M:%S", time)
 end
 
 ---
@@ -123,13 +123,13 @@ end
 -- @return "Windows", "macOS", "Linux" or nil.
 function GetOSName()
 	if (system.IsWindows()) then
-		return "Windows";
+		return "Windows"
 	elseif (system.IsOSX()) then
-		return "macOS";
+		return "macOS"
 	elseif (system.IsLinux()) then
-		return "Linux";
+		return "Linux"
 	end
-	return nil;
+	return nil
 end
 
 ---
@@ -138,7 +138,7 @@ end
 -- @param message Logline to write
 -- @param ... Values to format into it
 local function WriteLog(message, ...)
-	ServerLog(string.format("Sentry: %s\n", message:format(...)));
+	ServerLog(string.format("Sentry: %s\n", message:format(...)))
 end
 
 --
@@ -149,7 +149,7 @@ end
 -- All the modules Sentry has detected.
 -- Anything added to this will also be sent to Sentry
 -- @usage sentry.DetectedModules["foo"] = "7.2"
-DetectedModules = {};
+DetectedModules = {}
 
 ---
 -- More complex ways of detecting a module's version
@@ -157,69 +157,69 @@ DetectedModules = {};
 -- @usage sentry.DetectionFuncs["global name"] = function(global_value) return "version", "optional override name" end
 DetectionFuncs = {
 	mysqloo = function(mysqloo)
-		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION or 0);
+		return string.format("%d.%d", mysqloo.VERSION, mysqloo.MINOR_VERSION or 0)
 	end,
 	CPPI = function(CPPI)
-		local name = CPPI:GetName();
-		local version = CPPI:GetVersion();
+		local name = CPPI:GetName()
+		local version = CPPI:GetVersion()
 		if (version == CPPI.CPPI_NOT_IMPLEMENTED) then
 			-- ???
-			return nil;
+			return nil
 		end
-		return version, name;
+		return version, name
 	end,
 	ulx = function(ulx)
 		-- Why is this better than ulx.version
-		local ULib = g["ULib"];
+		local ULib = g["ULib"]
 		if (ULib and ULib.pluginVersionStr) then
-			return ULib.pluginVersionStr("ULX");
+			return ULib.pluginVersionStr("ULX")
 		end
-		return ulx.version or ulx.VERSION;
+		return ulx.version or ulx.VERSION
 	end,
 	ULib = function(ULib)
 		if (ULib.pluginVersionStr) then
-			return ULib.pluginVersionStr("ULib");
+			return ULib.pluginVersionStr("ULib")
 		end
-		return ULib.version or ULib.VERSION;
+		return ULib.version or ULib.VERSION
 	end,
 	GM = function(GM)
 		if (not GM.Version) then
-			return nil;
+			return nil
 		end
-		return GM.Version, string.format("Gamemode: %s", GM.Name);
+		return GM.Version, string.format("Gamemode: %s", GM.Name)
 	end,
 }
-DetectionFuncs["GAMEMODE"] = DetectionFuncs["GM"];
+DetectionFuncs["GAMEMODE"] = DetectionFuncs["GM"]
 
-local LUAJIT_VERSION = "(.+) (%d+%.%d+%.%d+)";
+local LUAJIT_VERSION = "(.+) (%d+%.%d+%.%d+)"
 ---
 -- Loops through _G and tries to find anything with some variant of a VERSION field.
 local function detectModules()
-	local VERSION = g["VERSION"];
+	local VERSION = g["VERSION"]
 
 	for name, value in pairs(g) do
-		local func = DetectionFuncs[name];
+		local func = DetectionFuncs[name]
 		if (func) then
 			-- Overrides
-			local _, version, override = xpcall(func, CaptureException, value);
+			local _, version, override = xpcall(func, CaptureException, value)
 
 			if (version) then
-				DetectedModules[override or name] = tostring(version);
+				DetectedModules[override or name] = tostring(version)
 			end
 		elseif (type(value) == "table" and name ~= "sentry") then
 			-- Magic guessing game
-			local version = value["version"] or value["Version"] or value["VERSION"];
+			local version = value["version"] or value["Version"] or value["VERSION"]
 
 			if (version and version ~= VERSION and type(version) ~= "function") then
-				version = tostring(version);
+				version = tostring(version)
 
 				-- Try and deal with LuaJIT style version strings
-				local override, realversion = string.match(version, LUAJIT_VERSION);
+				local override, realversion = string.match(version, LUAJIT_VERSION)
 				if (override) then
 					version = realversion
 				end
 
-				DetectedModules[override or name] = version;
+				DetectedModules[override or name] = version
 			end
 		end
 	end
@@ -228,41 +228,41 @@ end
 --
 --    Rate Limiting
 --
-local retryAfter = nil;
-local skipNext = nil;
+local retryAfter = nil
+local skipNext = nil
 ---
 -- Checks if an error should be reported to sentry
 -- @param err The FULL error message including embedded where line
 -- @return true to report, false to discard
 local function shouldReport(err)
 	if (not config.endpoint) then
-		return false;
+		return false
 	elseif (retryAfter ~= nil) then
-		local now = SysTime();
+		local now = SysTime()
 		if (retryAfter > now) then
-			return false;
+			return false
 		end
 
-		retryAfter = nil;
+		retryAfter = nil
 	end
 
 	if (skipNext == err) then
-		skipNext = nil;
-		return false;
+		skipNext = nil
+		return false
 	end
-	skipNext = nil;
+	skipNext = nil
 
-	return true;
+	return true
 end
 
 ---
 -- Disables sending messages to sentry for a period
 -- @param backoff how many seconds to wait
 local function doBackoff(backoff)
-	local expires = SysTime() + backoff;
+	local expires = SysTime() + backoff
 	if (retryAfter == nil or retryAfter < expires) then
-		WriteLog("Rate Limiting for %d seconds!", backoff);
-		retryAfter = expires;
+		WriteLog("Rate Limiting for %d seconds!", backoff)
+		retryAfter = expires
 	end
 end
 
@@ -272,19 +272,19 @@ end
 -- @param headers Table of HTTP response headers
 -- @return true if the server is unhappy with us
 local function detectRateLimiting(code, headers)
-	local backoff = tonumber(headers["Retry-After"]);
+	local backoff = tonumber(headers["Retry-After"])
 	-- Shouldn't happen, but might
 	if (code == 429 and not backoff) then
-		backoff = 20;
+		backoff = 20
 	end
 
 	if (not backoff) then
-		return false;
+		return false
 	end
 
-	doBackoff(backoff);
+	doBackoff(backoff)
 
-	return true;
+	return true
 end
 
 --
@@ -300,27 +300,27 @@ local OTHER_FILE_PATTERN = "^@lua/(.*).lua$"
 -- @return A pretty name like "foo.bar.baz" or "unknown" if the path makes no sense
 local function modulify(path)
 	if (path == "=[C]") then
-		return "engine";
+		return "engine"
 	elseif (path == "@lua_run") then
-		return "lua_run";
+		return "lua_run"
 	end
 
-	local addon, rest = string.match(path, ADDON_FILE_PATTERN);
+	local addon, rest = string.match(path, ADDON_FILE_PATTERN)
 	if (addon) then
-		return addon .. "." .. rest:gsub("/", ".");
+		return addon .. "." .. rest:gsub("/", ".")
 	end
 
-	local gamemode, rest = string.match(path, GAMEMODE_FILE_PATTERN);
+	local gamemode, rest = string.match(path, GAMEMODE_FILE_PATTERN)
 	if (not gamemode) then
-		gamemode, rest = string.match(path, ADDON_GAMEMODE_FILE_PATTERN);
+		gamemode, rest = string.match(path, ADDON_GAMEMODE_FILE_PATTERN)
 	end
 	if (gamemode) then
-		return gamemode .. "." .. rest:gsub("/", ".");
+		return gamemode .. "." .. rest:gsub("/", ".")
 	end
 
-	local rest = string.match(path, OTHER_FILE_PATTERN);
+	local rest = string.match(path, OTHER_FILE_PATTERN)
 	if (not rest) then
-		return "unknown";
+		return "unknown"
 	end
 
 	local name, id = luaerror.FindWorkshopAddonFileOwner(path:sub(2))
@@ -331,11 +331,11 @@ local function modulify(path)
 	-- Asciify name
 	name = name:lower():gsub("[^%w]+", "-"):gsub("%-+", "-"):gsub(
 		"^%-*(.-)%-*$", "%1"
-	);
+	)
 	-- Lua doesn't do unicode, so if the workshop name is in cyrilic or something, it'll now be empty
 	if (name:len() < 3) then
 		-- Heck
-		name = "workshop-" .. id;
+		name = "workshop-" .. id
 	end
 
 	return name .. "." .. rest:gsub("/", ".")
@@ -351,15 +351,15 @@ end
 -- @return A reversed stacktrace with different field names
 local function sentrifyStack(stack)
 	-- Sentry likes stacks in the oposite order to lua
-	stack = table.Reverse(stack);
+	stack = table.Reverse(stack)
 
 	-- The first entry from LuaError is sometimes useless
 	if (stack[#stack]["source"] == "=[C]" and stack[#stack]["name"] == "") then
-		table.remove(stack);
+		table.remove(stack)
 	end
 	-- If someone has called `error`, remove it from the stack trace
 	if (stack[#stack]["source"] == "=[C]" and stack[#stack]["name"] == "error") then
-		table.remove(stack);
+		table.remove(stack)
 	end
 
 	local ret = {}
@@ -371,28 +371,28 @@ local function sentrifyStack(stack)
 			lineno = frame["currentline"],
 		}
 	end
-	return {frames = ret};
+	return {frames = ret}
 end
 
 ---
 -- Extract the current stacktrace
 -- @return A Lua stacktrace
 local function getStack()
-	local level = 3; -- 1 = this, 2 = CaptureException
+	local level = 3 -- 1 = this, 2 = CaptureException
 
-	local stack = {};
+	local stack = {}
 	while true do
-		local info = debug.getinfo(level, "Sln");
+		local info = debug.getinfo(level, "Sln")
 		if (not info) then
 			break
 		end
 
-		stack[level - 2] = info;
+		stack[level - 2] = info
 
-		level = level + 1;
+		level = level + 1
 	end
 
-	return stack;
+	return stack
 end
 
 ---
@@ -402,24 +402,24 @@ end
 -- @param stack The error's stacktrace
 -- @return Hopefully a nice error like "oops" or the full error if not
 local function stripFileData(err, stack)
-	local match, file, line = string.match(err, "^((.+):(%d+): ).+$");
+	local match, file, line = string.match(err, "^((.+):(%d+): ).+$")
 	if (not match) then
-		return err;
+		return err
 	end
 
 	for _, frame in pairs(stack) do
 		if (frame["source"] == "@" .. file and tostring(frame["currentline"]) ==
 			tostring(line)) then
-			err = err:sub(#match + 1);
+			err = err:sub(#match + 1)
 			break
 		end
 	end
 
-	return err;
+	return err
 end
 
-local ADDON_BLAME_PATTERN = "^addons/([^/]+)/";
-local GAMEMODE_BLAME_PATTERN = "^gamemodes/([^/]+)/";
+local ADDON_BLAME_PATTERN = "^addons/([^/]+)/"
+local GAMEMODE_BLAME_PATTERN = "^gamemodes/([^/]+)/"
 ---
 -- Creates tags from the stack trace to help point the finger at the error's source
 -- @param stack The full Lua stacktrace
@@ -427,26 +427,26 @@ local GAMEMODE_BLAME_PATTERN = "^gamemodes/([^/]+)/";
 local function calculateBlame(stack)
 	for _, frame in pairs(stack) do
 		if (frame["source"] ~= "=[C]") then
-			local source = frame["source"]:sub(2);
+			local source = frame["source"]:sub(2)
 
-			local wsname, wsid = luaerror.FindWorkshopAddonFileOwner(source);
+			local wsname, wsid = luaerror.FindWorkshopAddonFileOwner(source)
 			if (wsname) then
 				return {{"addon", "workshop-" .. wsid}, {"addon-name", wsname}}
 			end
 
-			local addon = string.match(source, ADDON_BLAME_PATTERN);
+			local addon = string.match(source, ADDON_BLAME_PATTERN)
 			if (addon) then
 				return {{"addon", addon}}
 			end
 
-			local gamemode = string.match(source, GAMEMODE_BLAME_PATTERN);
+			local gamemode = string.match(source, GAMEMODE_BLAME_PATTERN)
 			if (gamemode) then
 				return {{"gamemode", gamemode}}
 			end
 		end
 	end
 
-	return {};
+	return {}
 end
 
 --
@@ -459,7 +459,7 @@ local transactionStack = {}
 -- @within Transactions
 -- @return true or false
 function IsInTransaction()
-	return #transactionStack > 0;
+	return #transactionStack > 0
 end
 
 ---
@@ -469,9 +469,9 @@ end
 local function pushTransaction(data)
 	local txn = {data = data, ctx = {}, id = UUID4()}
 
-	transactionStack[#transactionStack + 1] = txn;
+	transactionStack[#transactionStack + 1] = txn
 
-	return txn.id;
+	return txn.id
 end
 
 ---
@@ -484,7 +484,7 @@ local function popTransaction(id)
 		if (txn.id == id) then
 			-- Nuke everything above this tranasction in the stack
 			while transactionStack[i] do
-				table.remove(transactionStack, i);
+				table.remove(transactionStack, i)
 			end
 
 			-- If this is the last transaction, discard any pending skips
@@ -494,14 +494,14 @@ local function popTransaction(id)
 			-- to sentry.
 			-- If you run into this bug, reevaulate your life choices
 			if (not IsInTransaction()) then
-				skipNext = nil;
+				skipNext = nil
 			end
 
-			return txn.data;
+			return txn.data
 		end
 	end
 
-	error("Unknown Transaction '" .. tostring(id) .. "'!");
+	error("Unknown Transaction '" .. tostring(id) .. "'!")
 end
 
 ---
@@ -512,18 +512,18 @@ local function getTransactionData()
 	local res = {}
 
 	for _, txn in ipairs(transactionStack) do
-		table.Merge(res, txn.data);
-		table.Merge(res, txn.ctx);
+		table.Merge(res, txn.data)
+		table.Merge(res, txn.ctx)
 	end
 
-	return res;
+	return res
 end
 
 ---
 -- Gets the top transaction on the stack
 -- @return The full transaction meta object, or nil if there is no transaction active
 local function getCurrentTransaction()
-	return transactionStack[#transactionStack];
+	return transactionStack[#transactionStack]
 end
 
 --
@@ -537,7 +537,7 @@ end
 local function getUserContext(extra)
 	local ply = extra["user"]
 	if (not IsValid(ply)) then
-		return nil;
+		return nil
 	end
 
 	return {
@@ -566,10 +566,10 @@ end
 -- @param extra The fully merged frame context
 -- @return A sentry formatted object to go into the "tags" field
 local function getTags(extra)
-	local tags = {};
+	local tags = {}
 
 	for name, value in pairs(config.tags) do
-		table.insert(tags, {name, value});
+		table.insert(tags, {name, value})
 	end
 
 	-- Sentry would like extra tag values to suppliment the SDK tags when you send
@@ -577,7 +577,7 @@ local function getTags(extra)
 	-- I'm not entirely sure why, but best to do what the server asks for.
 	if (extra["tags"]) then
 		for name, value in pairs(extra.tags) do
-			table.insert(tags, {name, value});
+			table.insert(tags, {name, value})
 		end
 	end
 
@@ -595,11 +595,11 @@ end
 -- @param extra Any additional context for the error
 -- @return A full sentry object ready to be JSON'd and uplodaded
 local function buildPayload(err, stacktrace, extra)
-	local txn = getTransactionData();
+	local txn = getTransactionData()
 	table.Merge(txn, extra)
 
-	local tags = getTags(txn);
-	table.Add(tags, calculateBlame(stacktrace));
+	local tags = getTags(txn)
+	table.Add(tags, calculateBlame(stacktrace))
 
 	return {
 		event_id = UUID4(),
@@ -619,7 +619,7 @@ local function buildPayload(err, stacktrace, extra)
 		level = txn["level"],
 		extra = txn["extra"],
 		culprit = txn["culprit"],
-	};
+	}
 end
 
 --
@@ -627,7 +627,7 @@ end
 --
 local SENTRY_HEADER_FORMAT = ("Sentry sentry_version=7, " ..
                              	"sentry_client=%s/%s, " .. "sentry_timestamp=%d, " ..
-                             	"sentry_key=%s");
+                             	"sentry_key=%s")
 ---
 -- Build the sentry security header
 -- @return A string to go in the X-Sentry-Auth header
@@ -638,7 +638,7 @@ local function sentryAuthHeader()
 	)
 	-- Sentry <9 needs a secret key
 	if (config.privatekey) then
-		header = header .. (", sentry_secret=%s"):format(config.privatekey);
+		header = header .. (", sentry_secret=%s"):format(config.privatekey)
 	end
 	return header
 end
@@ -656,25 +656,25 @@ local function SendToServer(payload)
 			type = "application/json; charset=utf-8",
 			headers = {["X-Sentry-Auth"] = sentryAuthHeader()},
 			success = function(code, body, headers)
-				local result = util.JSONToTable(body) or {};
+				local result = util.JSONToTable(body) or {}
 
 				if (detectRateLimiting(code, headers)) then
-					return;
+					return
 				elseif (code ~= 200) then
-					local error = headers["X-Sentry-Error"] or result["error"];
+					local error = headers["X-Sentry-Error"] or result["error"]
 
 					if (code >= 500) then
-						WriteLog("Server is offline (%s), trying later", error or code);
-						doBackoff(2);
+						WriteLog("Server is offline (%s), trying later", error or code)
+						doBackoff(2)
 						return
 					elseif (code == 401) then
-						WriteLog("Access denied - shutting down: %s", error or body);
+						WriteLog("Access denied - shutting down: %s", error or body)
 						-- If sentry tells us to go away, go away properly
-						config.endpoint = nil;
-						return;
+						config.endpoint = nil
+						return
 					else
 						WriteLog("Got HTTP %d from the server: %s", code, error or body)
-						return;
+						return
 					end
 				end
 
@@ -683,7 +683,7 @@ local function SendToServer(payload)
 			end,
 			failed = function(reason)
 				-- This is effectively useless
-				WriteLog("HTTP request failed: %s", reason);
+				WriteLog("HTTP request failed: %s", reason)
 			end,
 		}
 	)
@@ -700,14 +700,14 @@ end
 -- @return The generated event ID
 local function proccessException(err, stack, extra)
 	if (not extra) then
-		extra = {};
+		extra = {}
 	end
 
-	local payload = buildPayload(err, stack, extra);
+	local payload = buildPayload(err, stack, extra)
 
-	SendToServer(payload);
+	SendToServer(payload)
 
-	return payload.event_id;
+	return payload.event_id
 end
 
 ---
@@ -721,7 +721,7 @@ end
 -- @return Nothing or you'll break everything
 local function OnLuaError(is_runtime, rawErr, file, lineno, err, stack)
 	if (not shouldReport(rawErr)) then
-		return;
+		return
 	end
 
 	if (#stack == 0) then
@@ -732,7 +732,7 @@ local function OnLuaError(is_runtime, rawErr, file, lineno, err, stack)
 		}
 	end
 
-	proccessException(err, stack);
+	proccessException(err, stack)
 end
 
 ---
@@ -743,14 +743,14 @@ end
 -- @return The generated error's ID or nil if it was automatically discarded
 function CaptureException(err, extra)
 	if (not shouldReport(err)) then
-		return nil;
+		return nil
 	end
 
-	local stack = getStack();
+	local stack = getStack()
 
-	err = stripFileData(err, stack);
+	err = stripFileData(err, stack)
 
-	return proccessException(err, stack, extra);
+	return proccessException(err, stack, extra)
 end
 
 ---
@@ -759,17 +759,17 @@ end
 -- @return err
 local function xpcallCB(err)
 	if (not shouldReport(err)) then
-		return err;
+		return err
 	end
 
-	local stack = getStack();
+	local stack = getStack()
 
-	local msg = stripFileData(err, stack);
+	local msg = stripFileData(err, stack)
 
-	proccessException(msg, stack);
+	proccessException(msg, stack)
 
 	-- Return the unmodified error
-	return err;
+	return err
 end
 
 ---
@@ -780,20 +780,20 @@ end
 -- @param ... Arguments to pass to func
 -- @return Its first result is the status code (a boolean), which is true if the call succeeds without errors. In such case, pcall also returns all results from the call, after this first result. In case of any error, pcall returns false plus the error message.
 function pcall(func, ...)
-	local args = {...};
-	local extra = {};
+	local args = {...}
+	local extra = {}
 
 	-- If the first argument is a table, it's configuring the exception handler
 	if (type(func) == "table") then
-		extra = func;
-		func = table.remove(args, 1);
+		extra = func
+		func = table.remove(args, 1)
 	end
 
-	local id = pushTransaction(extra);
-	local res = {xpcall(func, xpcallCB, unpack(args))};
-	popTransaction(id);
+	local id = pushTransaction(extra)
+	local res = {xpcall(func, xpcallCB, unpack(args))}
+	popTransaction(id)
 
-	return unpack(res);
+	return unpack(res)
 end
 
 --
@@ -803,7 +803,7 @@ end
 -- Skip the next message if it matches this message
 -- @param msg The full raw lua error including file/line info
 function SkipNext(msg)
-	skipNext = msg;
+	skipNext = msg
 end
 
 ---
@@ -816,33 +816,33 @@ end
 -- @return Whatever func returns
 function ExecuteTransaction(name, txn, func, ...)
 	if (name) then
-		txn["culprit"] = name;
+		txn["culprit"] = name
 	end
 
 	local noXPCall = IsInTransaction()
 
-	local id = pushTransaction(txn);
-	local res;
+	local id = pushTransaction(txn)
+	local res
 
 	-- If we're already inside a transaction, we don't need to xpcall because the
 	-- error will bubble all the way up to the root txn
 	if (noXPCall) then
-		res = {true, func(...)};
+		res = {true, func(...)}
 	else
-		res = {xpcall(func, xpcallCB, ...)};
+		res = {xpcall(func, xpcallCB, ...)}
 	end
 
-	popTransaction(id);
+	popTransaction(id)
 
-	local success = table.remove(res, 1);
+	local success = table.remove(res, 1)
 	if (not success) then
-		local err = res[1];
-		SkipNext(err);
+		local err = res[1]
+		SkipNext(err)
 		-- Boom
-		error(err, 0);
+		error(err, 0)
 	end
 
-	return unpack(res);
+	return unpack(res)
 end
 
 ---
@@ -859,7 +859,7 @@ end
 -- @return Whatever func returns
 function ExecuteInTransaction(...)
 	-- vulgar hellcode
-	local a, b = ...;
+	local a, b = ...
 	a, b = type(a), type(b)
 
 	if (a == "string" or a == "nil") then
@@ -871,7 +871,7 @@ function ExecuteInTransaction(...)
 	elseif (a == "table") then
 		return ExecuteTransaction(nil, ...)
 	else
-		return ExecuteTransaction(nil, {}, ...);
+		return ExecuteTransaction(nil, {}, ...)
 	end
 end
 
@@ -883,13 +883,13 @@ end
 -- @usage sentry.MergeContext({ culprit = "your mum" })
 -- @param data Data to add
 function MergeContext(data)
-	local txn = getCurrentTransaction();
+	local txn = getCurrentTransaction()
 	-- This might be suprising behaviour, but I don't have any better ideas
 	if (not txn) then
-		return;
+		return
 	end
 
-	table.Merge(txn.ctx, data);
+	table.Merge(txn.ctx, data)
 end
 
 ---
@@ -898,13 +898,13 @@ end
 -- Does nothing if no transaction is active
 -- @within Transactions
 function ClearContext()
-	local txn = getCurrentTransaction();
+	local txn = getCurrentTransaction()
 	-- This might be suprising behaviour, but I don't have any better ideas
 	if (not txn) then
-		return;
+		return
 	end
 
-	txn.ctx = {};
+	txn.ctx = {}
 end
 
 ---
@@ -914,7 +914,7 @@ end
 -- @usage sentry.TagsContext({ somecondition = "passed" })
 -- @param tags A table of tag names as keys, values as values
 function TagsContext(tags)
-	MergeContext({tags = tags});
+	MergeContext({tags = tags})
 end
 
 ---
@@ -924,7 +924,7 @@ end
 -- @usage sentry.ExtraContext({ numplayers = 23 })
 -- @param tags A table of arbitrary data to send to Sentry
 function ExtraContext(extra)
-	MergeContext({extra = extra});
+	MergeContext({extra = extra})
 end
 
 ---
@@ -934,91 +934,91 @@ end
 -- @usage sentry.UserContext(ply)
 -- @param user A player object
 function UserContext(user)
-	MergeContext({user = user});
+	MergeContext({user = user})
 end
 
 --
 --    Detours
 --
 local detourMT = {}
-detourMT.__index = detourMT;
+detourMT.__index = detourMT
 function detourMT:__call(...)
-	return self.override(self, ...);
+	return self.override(self, ...)
 end
 
 function detourMT:_get(extra)
 	-- I can't think of a sane way of doing this
-	local p = self.path;
+	local p = self.path
 	if (#p == 1) then
-		return g[p[1] .. extra];
+		return g[p[1] .. extra]
 	elseif (#p == 2) then
-		return g[p[1]][p[2] .. extra];
+		return g[p[1]][p[2] .. extra]
 	else
-		error("Not implemented");
+		error("Not implemented")
 	end
 end
 
 function detourMT:_set(value, extra)
-	extra = extra or "";
-	local p = self.path;
+	extra = extra or ""
+	local p = self.path
 	if (#p == 1) then
-		g[p[1] .. extra] = value;
+		g[p[1] .. extra] = value
 	elseif (#p == 2) then
-		g[p[1]][p[2] .. extra] = value;
+		g[p[1]][p[2] .. extra] = value
 	else
-		error("Not implemented");
+		error("Not implemented")
 	end
 end
 
 function detourMT:_reset_existing_detour()
-	local detour = self:_get("_DT");
+	local detour = self:_get("_DT")
 	if (not detour) then
-		return false;
+		return false
 	end
 
-	detour:Reset();
-	return true;
+	detour:Reset()
+	return true
 end
 
 function detourMT:_get_valid()
 	if (self:_reset_existing_detour()) then
-		return self:_get_valid();
+		return self:_get_valid()
 	end
-	local func = self:_get("");
+	local func = self:_get("")
 
 	if (type(func) ~= "function") then
-		return false;
+		return false
 	end
 
-	local info = debug.getinfo(func, "S");
+	local info = debug.getinfo(func, "S")
 	if (info["source"] ~= "@" .. self.module) then
-		return false;
+		return false
 	end
 
-	return func;
+	return func
 end
 
 function detourMT:Detour()
-	local func = self:_get_valid();
+	local func = self:_get_valid()
 	if (not func) then
-		error("Can't detour!");
+		error("Can't detour!")
 	end
-	self.original = func;
-	self:_set(self, "_DT");
+	self.original = func
+	self:_set(self, "_DT")
 	-- Engine functions won't talk to magical tables with the __call metafield. :(
 	self:_set(
 		function(...)
 			return self(...)
 		end
-	);
+	)
 end
 
 function detourMT:Reset()
-	self:_set(self.original);
+	self:_set(self.original)
 end
 
 function detourMT:Validate(module)
-	return self:_get_valid() ~= false;
+	return self:_get_valid() ~= false
 end
 
 ---
@@ -1034,41 +1034,41 @@ local function createDetour(func, target, expectedModule)
 		path = string.Split(target, "."),
 		module = expectedModule,
 	}
-	setmetatable(detour, detourMT);
+	setmetatable(detour, detourMT)
 
 	if (not detour:Validate()) then
-		return nil;
+		return nil
 	end
 
-	return detour;
+	return detour
 end
 
 local function concommandRun(detour, ply, command, ...)
-	local cmd = command:lower();
+	local cmd = command:lower()
 	ExecuteTransaction(
 		"cmd/" .. cmd, {tags = {concommand = cmd}, user = ply}, detour.original, ply,
 		command, ...
-	);
+	)
 end
 
 local function netIncoming(detour, len, ply)
-	local id = net.ReadHeader();
-	local name = util.NetworkIDToString(id);
+	local id = net.ReadHeader()
+	local name = util.NetworkIDToString(id)
 	if (not name) then
 		CaptureException(
 			string.format("Unknown network message with ID %d", id),
 			{user = ply, culprit = "net/" .. tostring(id)}
 		)
-		return;
+		return
 	end
 
-	local func = net.Receivers[name:lower()];
+	local func = net.Receivers[name:lower()]
 	if (not func) then
 		CaptureException(
 			string.format("Unknown network message with name %s", name),
 			{user = ply, tags = {net_message = name}, culprit = "net/" .. name}
 		)
-		return;
+		return
 	end
 
 	-- len includes the 16 bit int which told us the message name
@@ -1076,39 +1076,39 @@ local function netIncoming(detour, len, ply)
 
 	ExecuteTransaction(
 		"net/" .. name, {user = ply, tags = {net_message = name}}, func, len, ply
-	);
+	)
 end
 
-local HOOK_TXN_FORMAT = "hook/%s/%s";
+local HOOK_TXN_FORMAT = "hook/%s/%s"
 local function actualHookCall(name, gm, ...)
 	-- Heuristics: Pretty much any hook that operates on a player has the player as the first argument
-	local ply = ...;
+	local ply = ...
 	if (not (type(ply) == "Player" and IsValid(ply))) then
-		ply = nil;
+		ply = nil
 	end
 
 	local ctx = {user = ply}
 
-	local hooks = hook.GetTable()[name];
+	local hooks = hook.GetTable()[name]
 	if (hooks) then
-		local a, b, c, d, e, f;
+		local a, b, c, d, e, f
 		for hookname, func in pairs(hooks) do
 			if (isstring(hookname)) then
 				a, b, c, d, e, f = ExecuteTransaction(
 					string.format(HOOK_TXN_FORMAT, name, hookname), ctx, func, ...
-				);
+				)
 			elseif (IsValid(hookname)) then
 				-- This won't be a great name, but it's the best we can do
 				a, b, c, d, e, f = ExecuteTransaction(
 					string.format(HOOK_TXN_FORMAT, name, tostring(hookname)), ctx, func,
 					hookname, ...
-				);
+				)
 			else
-				hooks[hookname] = nil;
+				hooks[hookname] = nil
 			end
 
 			if (a ~= nil) then
-				return a, b, c, d, e, f;
+				return a, b, c, d, e, f
 			end
 		end
 	end
@@ -1116,41 +1116,41 @@ local function actualHookCall(name, gm, ...)
 	if (gm and gm[name]) then
 		return ExecuteTransaction(
 			string.format(HOOK_TXN_FORMAT, "GM", name), ctx, gm[name], gm, ...
-		);
+		)
 	end
 end
 
 local function ulxHookCall(name, gm, ...)
 	-- Heuristics: Pretty much any hook that operates on a player has the player as the first argument
-	local ply = ...;
+	local ply = ...
 	if (not (type(ply) == "Player" and IsValid(ply))) then
-		ply = nil;
+		ply = nil
 	end
 
 	local ctx = {user = ply}
 
-	local hooks = hook.GetULibTable()[name];
+	local hooks = hook.GetULibTable()[name]
 	if (hooks) then
-		local a, b, c, d, e, f, func;
+		local a, b, c, d, e, f, func
 		for i = -2, 2 do
 			for hookname, t in pairs(hooks[i]) do
-				func = t.fn;
+				func = t.fn
 				if (t.isstring) then
 					a, b, c, d, e, f = ExecuteTransaction(
 						string.format(HOOK_TXN_FORMAT, name, hookname), ctx, func, ...
-					);
+					)
 				elseif (IsValid(hookname)) then
 					-- This won't be a great name, but it's the best we can do
 					a, b, c, d, e, f = ExecuteTransaction(
 						string.format(HOOK_TXN_FORMAT, name, tostring(hookname)), ctx, func,
 						hookname, ...
-					);
+					)
 				else
-					hooks[i][hookname] = nil;
+					hooks[i][hookname] = nil
 				end
 
 				if (a ~= nil and i > -2 and i < 2) then
-					return a, b, c, d, e, f;
+					return a, b, c, d, e, f
 				end
 			end
 		end
@@ -1159,7 +1159,7 @@ local function ulxHookCall(name, gm, ...)
 	if (gm and gm[name]) then
 		return ExecuteTransaction(
 			string.format(HOOK_TXN_FORMAT, "GM", name), ctx, gm[name], gm, ...
-		);
+		)
 	end
 end
 
@@ -1179,14 +1179,14 @@ local hookTypes = {
 -- @return Detour object if successful, false otherwise
 local function detourHookCall()
 	for _, hook in pairs(hookTypes) do
-		local detour = createDetour(hookCall, "hook.Call", hook.module);
+		local detour = createDetour(hookCall, "hook.Call", hook.module)
 		if (detour) then
-			detour.func = hook.override;
-			return detour;
+			detour.func = hook.override
+			return detour
 		end
 	end
 
-	return false;
+	return false
 end
 
 local toDetour = {
@@ -1209,48 +1209,48 @@ local ERR_PREDETOURED =
 local function doDetours()
 	local no_detour = {}
 	for _, funcname in ipairs(config["no_detour"]) do
-		no_detour[funcname] = true;
+		no_detour[funcname] = true
 	end
 
 	for _, deets in pairs(toDetour) do
 		if (not no_detour[deets.target]) then
-			local detour = createDetour(deets.override, deets.target, deets.module);
+			local detour = createDetour(deets.override, deets.target, deets.module)
 			if (not detour) then
 				error(string.format(ERR_PREDETOURED, deets.target))
 			end
-			detour:Detour();
+			detour:Detour()
 		end
 	end
 
 	if (not no_detour["hook.Call"]) then
-		local detour = detourHookCall();
+		local detour = detourHookCall()
 		if (not detour) then
 			error(string.format(ERR_PREDETOURED, "hook.Call"))
 		end
-		detour:Detour();
+		detour:Detour()
 	end
 end
 
 --
 -- Initial Configuration
 --
-local DSN_FORMAT = "^(https?://)(%w+):?(%w-)@([%w.:]+)/(%w+)$";
+local DSN_FORMAT = "^(https?://)(%w+):?(%w-)@([%w.:]+)/(%w+)$"
 ---
 -- Validates a sentry DSN and stores it in the config
 -- @param dsn The passed string
 local function parseDSN(dsn)
 	local scheme, publickey, privatekey, host, project =
-		string.match(dsn, DSN_FORMAT);
+		string.match(dsn, DSN_FORMAT)
 	if (not (scheme and publickey and host and project)) then
 		error("Malformed DSN!")
 	end
 	if (privatekey == "") then
-		privatekey = nil;
+		privatekey = nil
 	end
-	config.privatekey = privatekey;
-	config.publickey = publickey;
-	config.projectID = project;
-	config.endpoint = scheme .. host .. "/api/" .. project .. "/store/";
+	config.privatekey = privatekey
+	config.publickey = publickey
+	config.projectID = project
+	config.endpoint = scheme .. host .. "/api/" .. project .. "/store/"
 end
 
 local settables = {"tags", "release", "environment", "server_name", "no_detour"}
@@ -1265,24 +1265,24 @@ function Setup(dsn, extra)
 	if (extra) then
 		for _, key in pairs(settables) do
 			if (extra[key] ~= nil) then
-				config[key] = extra[key];
+				config[key] = extra[key]
 			end
 		end
 	end
 
 	if (not config["server_name"]) then
-		config["server_name"] = GetHostName();
+		config["server_name"] = GetHostName()
 	end
 
-	doDetours();
+	doDetours()
 
-	luaerror.EnableRuntimeDetour(true);
-	luaerror.EnableCompiletimeDetour(true);
+	luaerror.EnableRuntimeDetour(true)
+	luaerror.EnableCompiletimeDetour(true)
 
-	hook.Add("LuaError", "Sentry Integration", OnLuaError);
+	hook.Add("LuaError", "Sentry Integration", OnLuaError)
 
 	-- Once the server has initialised, get all the things with a "version" field
 	hook.Add("Initialize", "Sentry Integration", detectModules)
 	-- Just in case we're being called in the Initialize hook, also get them now.
-	detectModules();
+	detectModules()
 end
