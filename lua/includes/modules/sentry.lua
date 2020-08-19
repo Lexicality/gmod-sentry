@@ -41,6 +41,7 @@ local math = math
 local net = net
 local os = os
 local pairs = pairs
+local rawget = rawget
 local setmetatable = setmetatable
 local string = string
 local system = system
