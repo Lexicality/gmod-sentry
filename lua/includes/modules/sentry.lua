@@ -246,6 +246,8 @@ local function shouldReport(err)
 		end
 
 		retryAfter = nil
+	elseif string.find(err, "ISteamHTTP isn't available") then
+		return false
 	end
 
 	if skipNext == err then
