@@ -73,6 +73,8 @@ local config = {
 	environment = nil,
 	server_name = nil,
 	no_detour = {},
+	capture_locals = true,
+	capture_upvalues = false,
 }
 
 --
@@ -349,12 +351,53 @@ end
 --    Stack Reverse Engineering
 --
 
+local NIL_REPLACEMENT = "<nil>" -- We need some way of representing nil values without them disappearing from tables
+
+---
+-- Recursively formats a table of variables into a dictionary of key -> values
+-- @param vars The table of keys and values to process, recursively deals with table values
+-- @param out The output dictionary
+-- @param[opt] prefix What to prefix the variable names with, used for the recursion of tables
+-- @param[opt] done A list of tables that have already been processed to prevent infinite recursion
+local function formatStackVariables(vars, out, prefix, done)
+	prefix = prefix or ""
+	done = done or {}
+	done[vars] = true
+
+	for k,v in pairs(vars) do
+		local vType = type(v)
+		if (vType == "table" and v.r and v.g and v.b and v.a) then
+			out[prefix .. k] = ("Color(%.0f, %.0f, %.0f, %.0f)"):format(v.r, v.g, v.b, v.a)
+		elseif (vType == "table" and not done[v]) then
+			formatStackVariables(v, out, prefix .. k .. ".", done)
+		elseif (vType == "number" or vType == "bool") then
+			out[prefix .. k] = tostring(v)
+		elseif (vType == "string") then -- nil values are included here aswell
+			out[prefix .. k] = v
+		elseif (vType == "Vector") then
+			out[prefix .. k] = ("Vector(%.3f, %.3f, %.3f)"):format(v.x, v.y, v.z)
+		elseif (vType == "Angle") then
+			out[prefix .. k] = ("Angle(%.3f, %.3f, %.3f)"):format(v.p, v.y, v.r)
+		elseif (vType == "Player" and IsValid(v)) then
+			out[prefix .. k] = ("Player[%q, %s]"):format(v:Nick(), v:SteamID())
+		elseif (vType == "NPC" and IsValid(v)) then
+			out[prefix .. k] = ("NPC[%i, %s]"):format(v:EntIndex(), v:GetClass())
+		elseif (vType == "Weapon" and IsValid(v)) then
+			out[prefix .. k] = ("Weapon[%i, %s]"):format(v:EntIndex(), v:GetClass())
+		elseif (vType == "Entity" and IsValid(v)) then
+			out[prefix .. k] = ("Entity[%i, %s]"):format(v:EntIndex(), v:GetClass())
+		elseif (vType ~= "function") then -- Catch-all except functions cause they are boring
+			out[prefix .. k] = tostring(v)
+		end
+	end
+end
+
 ---
 -- Turns a lua stacktrace into a Sentry stacktrace
 -- @param stack Lua stacktrace in debug.getinfo style
 -- @return A reversed stacktrace with different field names
 local function sentrifyStack(stack)
-	-- Sentry likes stacks in the oposite order to lua
+	-- Sentry likes stacks in the opposite order to lua
 	stack = table.Reverse(stack)
 
 	-- The first entry from LuaError is sometimes useless
@@ -368,11 +411,20 @@ local function sentrifyStack(stack)
 
 	local ret = {}
 	for i, frame in ipairs(stack) do
+		local vars = {}
+		if config["capture_upvalues"] and frame["upvalues"] then
+			formatStackVariables(frame["upvalues"], vars)
+		end
+		if config["capture_locals"] and frame["locals"] then
+			formatStackVariables(frame["locals"], vars)
+		end
+
 		ret[i] = {
 			filename = frame["source"]:sub(2),
 			["function"] = frame["name"] or "<unknown>",
 			module = modulify(frame["source"]),
 			lineno = frame["currentline"],
+			vars = vars,
 		}
 	end
 	return {frames = ret}
@@ -386,9 +438,35 @@ local function getStack()
 
 	local stack = {}
 	while true do
-		local info = debug.getinfo(level, "Sln")
+		local info = debug.getinfo(level, "fSlnu")
 		if not info then
 			break
+		end
+
+		if info.what == "Lua" then
+			if config["capture_locals"] then
+				local locals = {}
+				local i = 1
+				while true do
+					local name, value = debug.getlocal(level, i)
+					if not isstring(name) then break end
+
+					if #name > 0 and name[1] ~= "(" then -- Some locals are internal with names like "(*temporary)"
+						locals[name] = value == nil and NIL_REPLACEMENT or value
+					end
+					i = i + 1
+				end
+				info.locals = locals
+			end
+
+			if config["capture_upvalues"] then
+				local upvalues = {}
+				for j = 1, info.nups do
+					local name, value = debug.getupvalue(info.func, j)
+					upvalues[name] = value == nil and NIL_REPLACEMENT or value
+				end
+				info.upvalues = upvalues
+			end
 		end
 
 		stack[level - 2] = info
@@ -840,6 +918,8 @@ function ExecuteTransaction(name, txn, func, ...)
 
 	local success = table.remove(res, 1)
 	if not success then
+		--xpcallCB("Test") -- Uncomment this if you get "error in error handling" errors, useful for debugging
+
 		local err = res[1]
 		SkipNext(err)
 		-- Boom
