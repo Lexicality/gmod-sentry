@@ -1238,12 +1238,12 @@ end
 --
 -- Initial Configuration
 --
-local DSN_FORMAT = "^(https?://)(%w+):?(%w-)@([%w.:]+)/(%w+)$"
+local DSN_FORMAT = "^([^:]+)://([^:]+)@([^/]+)(.*/)(.+)$"
 ---
 -- Validates a sentry DSN and stores it in the config
 -- @param dsn The passed string
 local function parseDSN(dsn)
-	local scheme, publickey, privatekey, host, project =
+	local scheme, publickey, host, path, project =
 		string.match(dsn, DSN_FORMAT)
 	if not (scheme and publickey and host and project) then
 		error("Malformed DSN!")
@@ -1254,7 +1254,7 @@ local function parseDSN(dsn)
 	config.privatekey = privatekey
 	config.publickey = publickey
 	config.projectID = project
-	config.endpoint = scheme .. host .. "/api/" .. project .. "/store/"
+	config.endpoint = scheme .. "://" .. host .. "/api/" .. project .. "/store/"
 end
 
 local settables = {"tags", "release", "environment", "server_name", "no_detour"}
